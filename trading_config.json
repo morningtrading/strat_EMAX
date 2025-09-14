@@ -1,0 +1,146 @@
+{
+  "symbols": {
+    "primary": "XAUUSD",
+    "secondary": [
+      "GBPUSD",
+      "USDJPY",
+      "AUDUSD"
+    ]
+  },
+  "timeframe": "M5",
+  "indicators": {
+    "sma": {
+      "enabled": true,
+      "periods": [
+        20,
+        50,
+        200
+      ],
+      "weight": 0.15
+    },
+    "ema": {
+      "enabled": true,
+      "periods": [
+        12,
+        26
+      ],
+      "weight": 0.1
+    },
+    "rsi": {
+      "enabled": true,
+      "period": 14,
+      "overbought": 70,
+      "oversold": 30,
+      "weight": 0.2
+    },
+    "macd": {
+      "enabled": true,
+      "fast": 12,
+      "slow": 26,
+      "signal": 9,
+      "weight": 0.15
+    },
+    "bollinger_bands": {
+      "enabled": true,
+      "period": 20,
+      "std_dev": 2.0,
+      "weight": 0.1
+    },
+    "stochastic": {
+      "enabled": true,
+      "k_period": 14,
+      "d_period": 3,
+      "overbought": 80,
+      "oversold": 20,
+      "weight": 0.1
+    },
+    "williams_r": {
+      "enabled": true,
+      "period": 14,
+      "overbought": -20,
+      "oversold": -80,
+      "weight": 0.05
+    },
+    "adx": {
+      "enabled": true,
+      "period": 14,
+      "strong_trend_threshold": 25,
+      "weight": 0.05
+    },
+    "cci": {
+      "enabled": true,
+      "period": 20,
+      "overbought": 100,
+      "oversold": -100,
+      "weight": 0.05
+    },
+    "atr": {
+      "enabled": true,
+      "period": 14,
+      "weight": 0.05
+    }
+  },
+  "risk_management": {
+    "position_sizing": {
+      "method": "percentage",
+      "risk_per_trade": 0.1,
+      "max_position_size": 0.1,
+      "max_total_exposure": 0.3
+    },
+    "stop_loss": {
+      "method": "atr",
+      "atr_multiplier": 2.0,
+      "fixed_pips": 50,
+      "percentage": 0.01
+    },
+    "take_profit": {
+      "method": "risk_reward",
+      "risk_reward_ratio": 2.0,
+      "fixed_pips": 100,
+      "percentage": 0.02
+    },
+    "trailing_stop": {
+      "enabled": true,
+      "method": "atr",
+      "atr_multiplier": 1.5,
+      "activation_profit": 0.005
+    },
+    "max_drawdown": {
+      "enabled": true,
+      "max_drawdown_percentage": 0.15,
+      "stop_trading_threshold": 0.12
+    },
+    "daily_loss_limit": {
+      "enabled": true,
+      "max_daily_loss": 0.05,
+      "max_consecutive_losses": 5
+    },
+    "correlation_limits": {
+      "enabled": true,
+      "max_correlated_positions": 2,
+      "correlation_threshold": 0.7
+    }
+  },
+  "trading_settings": {
+    "signal_threshold": {
+      "strong_buy": 0.7,
+      "weak_buy": 0.4,
+      "strong_sell": 0.7,
+      "weak_sell": 0.4
+    },
+    "confirmation_required": true,
+    "min_indicators_agreement": 3,
+    "trading_hours": {
+      "enabled": true,
+      "start_hour": 8,
+      "end_hour": 17,
+      "timezone": "UTC"
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "save_trades": true,
+    "save_analysis": true,
+    "log_file": "trading_log.json"
+  }
+}
