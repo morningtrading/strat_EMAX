@@ -2,8 +2,8 @@
 
 A high-performance backtesting framework with **29.6x speedup** over traditional engines while maintaining accuracy.
 
-[![Performance](https://img.shields.io/badge/Performance-29.6x%20Faster-brightgreen.svg)](https://github.com/yourusername/optimized-backtesting-engine)
-[![Accuracy](https://img.shields.io/badge/Accuracy-99.87%25%20Maintained-green.svg)](https://github.com/yourusername/optimized-backtesting-engine)
+[![Performance](https://img.shields.io/badge/Performance-29.6x%20Faster-brightgreen.svg)](https://github.com/titustrantor/MT5VMindicator)
+[![Accuracy](https://img.shields.io/badge/Accuracy-99.87%25%20Maintained-green.svg)](https://github.com/titustrantor/MT5VMindicator)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -42,6 +42,13 @@ A high-performance backtesting framework with **29.6x speedup** over traditional
 - ✅ Trade-by-trade analysis
 - ✅ Equity curve and drawdown visualization
 
+### **MetaTrader 5 Integration**
+- ✅ Live trading capabilities
+- ✅ Real-time market data access
+- ✅ Automated trade execution
+- ✅ Portfolio management
+- ✅ Risk monitoring and alerts
+
 ## 🚀 Quick Start
 
 ```python
@@ -68,17 +75,33 @@ print(f"Max Drawdown: {results.max_drawdown_pct:.2f}%")
 ## 📁 Project Structure
 
 ```
-Project1Py/
-├── backtesting_engine_optimized.py    # ⚡ Main optimized engine
-├── enhanced_trading_strategy.py       # 📊 Enhanced strategy with indicators
-├── run_backtest.py                    # 🚀 Main backtesting script
-├── backtest_analyzer.py               # 📈 Results analysis & visualization
-├── data_loader.py                     # 📁 Universal data loading
-├── trading_config.json                # ⚙️ Strategy configuration
-├── config_editor.py                   # 🔧 Interactive config editor
-├── check_data_quality.py              # 🔍 Data quality analysis
-├── data_gap_filter.py                 # 🧹 Data preprocessing
-└── README.md                          # 📖 This file
+MT5VMindicator/
+├── 🚀 Core Entry Points
+│   ├── run_backtest.py                    # Main backtesting script
+│   └── run_enhanced_strategy.py           # Live trading execution
+├── ⚡ Backtesting Engines
+│   ├── backtesting_engine_optimized.py    # ⚡ Main optimized engine (29.6x faster)
+│   └── backtesting_engine.py              # Original baseline engine
+├── 📊 Strategy & Analysis
+│   ├── enhanced_trading_strategy.py       # Enhanced strategy with 10+ indicators
+│   ├── backtest_analyzer.py               # Results analysis & visualization
+│   ├── trading_config.json                # Strategy configuration
+│   └── config_editor.py                   # Interactive config editor
+├── 📁 Data Management
+│   ├── data_loader.py                     # Universal CSV data loader
+│   ├── check_data_quality.py              # Data quality analysis
+│   ├── data_gap_filter.py                 # Data preprocessing & filtering
+│   ├── 15_XAUUSD_1min_1month_continuous.csv
+│   ├── 15_XAUUSD_1min_1month_extreme_filtered.csv
+│   └── 15_XAUUSD_1min_1month_weekend_filtered.csv
+├── 🔌 MetaTrader 5 Integration
+│   ├── mt5_connection.py                  # MT5 connection utilities
+│   ├── mt5_trading_demo.py                # Advanced MT5 demo
+│   └── mt5_trading_strategy.py            # Live trading implementation
+├── 📖 Documentation
+│   └── README.md                          # Main documentation
+└── 🔧 Configuration
+    └── requirements.txt                   # Python dependencies
 ```
 
 ## 📊 Example Results
@@ -111,8 +134,13 @@ Max drawdown: 4.88%
 ## 📈 Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/optimized-backtesting-engine.git
-cd optimized-backtesting-engine
+git clone https://github.com/titustrantor/MT5VMindicator.git
+cd MT5VMindicator
+pip install -r requirements.txt
+```
+
+### Manual Installation
+```bash
 pip install pandas numpy matplotlib seaborn MetaTrader5
 ```
 
@@ -124,32 +152,49 @@ pip install pandas numpy matplotlib seaborn MetaTrader5
 - **Production Trading**: Real-time strategy implementation
 - **Research**: Academic and professional trading research
 
-## 🧪 Performance Testing
+## 🧪 Usage Examples
 
-Compare all engines:
-
-```bash
-python compare_all_engines.py
-```
-
-Run comprehensive backtest:
-
+### Comprehensive Backtesting
 ```bash
 python run_backtest.py
 ```
 
-## 🔍 Data Quality Analysis
-
-Check your data for gaps and issues:
-
+### Live Trading
 ```bash
-python check_data_quality.py
+python run_enhanced_strategy.py
 ```
 
-Filter problematic data:
 
+## 🔄 Typical Workflow
+
+### 1. Data Preparation
 ```bash
+# Check data quality
+python check_data_quality.py
+
+# Filter problematic data
 python data_gap_filter.py
+```
+
+### 2. Strategy Configuration
+```bash
+# Interactive configuration
+python config_editor.py
+
+# Or edit trading_config.json manually
+```
+
+### 3. Backtesting
+```bash
+# Run comprehensive backtest
+python run_backtest.py
+
+```
+
+### 4. Live Trading (Optional)
+```bash
+# Start live trading
+python run_enhanced_strategy.py
 ```
 
 ## ⚙️ Configuration
@@ -216,11 +261,6 @@ Contributions welcome! Please feel free to submit a Pull Request.
 
 MIT License - see LICENSE file for details.
 
-## 🔗 Links
-
-- [Performance Analysis](FINAL_PERFORMANCE_ANALYSIS.md)
-- [Optimization Summary](PERFORMANCE_OPTIMIZATION_SUMMARY.md)
-- [Integration Guide](OPTIMIZATION_INTEGRATION_SUMMARY.md)
 
 ## 📞 Support
 
@@ -232,5 +272,3 @@ If you encounter any issues or have questions, please open an issue on GitHub.
 
 *Transform your trading strategies with lightning-fast backtesting!*
 
-# MT5VMindicator
-# MT5VMindicator

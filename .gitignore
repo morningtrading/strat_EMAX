@@ -42,13 +42,15 @@ backtest_results_*/
 *.jpg
 *.jpeg
 *.gif
+*.pdf
 
 # Data files (optional - remove if you want to include data)
 Z:/
 *.csv
+*.json
 portfolio_state_*.json
 
-# Keep important config files
-!trading_config.json
-!portfolio_state_20250914_091003.json
-
+# Temporary files
+*.tmp
+*.temp
+*~
