@@ -232,3 +232,4 @@ If you encounter any issues or have questions, please open an issue on GitHub.
 
 *Transform your trading strategies with lightning-fast backtesting!*
 
+# MT5VMindicator
