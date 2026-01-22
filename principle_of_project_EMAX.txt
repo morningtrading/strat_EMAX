@@ -1,0 +1,39 @@
+please build a trading engine with the foillwing features:
+
+
+conecct and provide connection status to mt5
+
+provide dashbaord of last 20 orders and their pnl and usual statistics
+
+have a button to enable ot disable trading (for the suer to select choppy period or good trending period)
+button for short only long only or both enabled
+
+add a panic button to exit all positions
+
+perform trade on EMA crossing (fast 9 EMA slow 41 EMA)
+
+be carefull of mutliple entry or exit during the same candle or same crossing
+
+for sizing: i am on leverage 1000 on AXI. check this is correct for the given symbol (XAUUSD, XAGUSD, NAS100fs, US500russel, GER40, FRA40) check symbols are correct.
+
+For now on max margin to be used from balance: 10 dollar.
+
+add a safety SL at 50% of the margin (so for 10 dollar margin 5 dollar). (is it a good idea??)
+
+
+exit on next crossing in other direction or if low of bar is very under slow EMA by ?? 0.5% 
+
+Of course all above parameter shall be configurable in a config file and repeated on the dashbaord.
+
+refresh the data from MT5 fast but no overflow...
+
+add any good diea and proposal, ask me for choice, and give me any questions.
+
+test should be done only on demo account. check for this.
+
+Plan aslo for a backtesting on 1m time frame and 5 min time frame for 1 month.
+
+
+
+
+

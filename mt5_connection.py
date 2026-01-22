@@ -210,7 +210,7 @@ class MT5Connection:
             return pd.DataFrame()
         
         orders = mt5.orders_get()
-        if orders is None:
+        if orders is None or len(orders) == 0:
             print("No pending orders")
             return pd.DataFrame()
         
