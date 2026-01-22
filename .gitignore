@@ -47,8 +47,8 @@ backtest_results_*/
 # Data files (optional - remove if you want to include data)
 Z:/
 *.csv
-*.json
 portfolio_state_*.json
+state_*.json
 
 # Temporary files
 *.tmp

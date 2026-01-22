@@ -1,274 +1,204 @@
-# 🚀 Optimized Backtesting Engine
+# 🚀 EMAX Trading Engine
 
-A high-performance backtesting framework with **29.6x speedup** over traditional engines while maintaining accuracy.
+**EMA Crossover Trading System for MetaTrader 5 on Linux**
 
-[![Performance](https://img.shields.io/badge/Performance-29.6x%20Faster-brightgreen.svg)](https://github.com/titustrantor/MT5VMindicator)
-[![Accuracy](https://img.shields.io/badge/Accuracy-99.87%25%20Maintained-green.svg)](https://github.com/titustrantor/MT5VMindicator)
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://python.org)
+A fully automated trading engine that uses EMA (Exponential Moving Average) crossovers to generate buy and sell signals, running on Linux through Wine.
+
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
+[![MT5](https://img.shields.io/badge/Platform-MetaTrader5-green.svg)](https://www.metatrader5.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-## ⚡ Performance
-
-| Engine | Speed | Accuracy | Memory | Status |
-|--------|-------|----------|--------|---------|
-| Original | 1.0x | 100% | Baseline | ✅ Validated |
-| **Optimized** | **29.6x** | **99.87%** | **17%** | ✅ **Active** |
-| Fast | 35.5x | ❌ Broken | 15% | ❌ Avoid |
-
-## 🎯 Features
-
-### **Enhanced Trading Strategy**
-- ✅ 10+ Technical Indicators (SMA, EMA, RSI, MACD, Bollinger Bands, etc.)
-- ✅ Configurable JSON-based parameters
-- ✅ Multi-factor signal generation with weights
-- ✅ Advanced risk management
-
-### **Optimized Backtesting Engine**
-- ✅ **29.6x faster** than original engine
-- ✅ Pre-calculated indicators (major speedup)
-- ✅ Vectorized calculations using pandas/numpy
-- ✅ Memory efficient (83% reduction)
-- ✅ Same accuracy as original engine
-
-### **Data Management**
-- ✅ Universal CSV loader with auto-detection
-- ✅ Data quality analysis and gap filtering
-- ✅ Support for multiple timeframes
-- ✅ Weekend and extreme gap filtering
-
-### **Analysis & Visualization**
-- ✅ Comprehensive performance metrics
-- ✅ Risk analysis (Sharpe, Sortino, Calmar ratios)
-- ✅ Trade-by-trade analysis
-- ✅ Equity curve and drawdown visualization
-
-### **MetaTrader 5 Integration**
-- ✅ Live trading capabilities
-- ✅ Real-time market data access
-- ✅ Automated trade execution
-- ✅ Portfolio management
-- ✅ Risk monitoring and alerts
-
-## 🚀 Quick Start
-
-```python
-from backtesting_engine_optimized import OptimizedBacktestingEngine
-import datetime
-
-# Create engine
-engine = OptimizedBacktestingEngine()
-
-# Run backtest
-results = engine.run_backtest_optimized(
-    symbol="15",
-    start_date=datetime.datetime(2025, 9, 7),
-    end_date=datetime.datetime(2025, 9, 14),
-    initial_balance=10000
-)
-
-# Display results
-print(f"Total Return: {results.total_return_pct:.2f}%")
-print(f"Win Rate: {results.win_rate:.2f}%")
-print(f"Max Drawdown: {results.max_drawdown_pct:.2f}%")
-```
-
-## 📁 Project Structure
-
-```
-MT5VMindicator/
-├── 🚀 Core Entry Points
-│   ├── run_backtest.py                    # Main backtesting script
-│   └── run_enhanced_strategy.py           # Live trading execution
-├── ⚡ Backtesting Engines
-│   ├── backtesting_engine_optimized.py    # ⚡ Main optimized engine (29.6x faster)
-│   └── backtesting_engine.py              # Original baseline engine
-├── 📊 Strategy & Analysis
-│   ├── enhanced_trading_strategy.py       # Enhanced strategy with 10+ indicators
-│   ├── backtest_analyzer.py               # Results analysis & visualization
-│   ├── trading_config.json                # Strategy configuration
-│   └── config_editor.py                   # Interactive config editor
-├── 📁 Data Management
-│   ├── data_loader.py                     # Universal CSV data loader
-│   ├── check_data_quality.py              # Data quality analysis
-│   ├── data_gap_filter.py                 # Data preprocessing & filtering
-│   ├── 15_XAUUSD_1min_1month_continuous.csv
-│   ├── 15_XAUUSD_1min_1month_extreme_filtered.csv
-│   └── 15_XAUUSD_1min_1month_weekend_filtered.csv
-├── 🔌 MetaTrader 5 Integration
-│   ├── mt5_connection.py                  # MT5 connection utilities
-│   ├── mt5_trading_demo.py                # Advanced MT5 demo
-│   └── mt5_trading_strategy.py            # Live trading implementation
-├── 📖 Documentation
-│   └── README.md                          # Main documentation
-└── 🔧 Configuration
-    └── requirements.txt                   # Python dependencies
-```
-
-## 📊 Example Results
-
-```
-⚡ OPTIMIZED BACKTESTING MODE (Accurate + Fast)
-Starting backtest for 15
-Initial balance: $10,000.00
-Total bars: 6506
-📊 Pre-calculating indicators...
-✅ Pre-calculated 18 indicator series
-
-Backtest completed!
-Final balance: $10,012.92
-Total return: 0.13%
-Total trades: 53
-Win rate: 33.96%
-Max drawdown: 4.88%
-```
-
-## 🔧 Requirements
-
-- Python 3.8+
-- pandas
-- numpy
-- matplotlib
-- seaborn
-- MetaTrader5 (for live trading)
-
-## 📈 Installation
-
-```bash
-git clone https://github.com/titustrantor/MT5VMindicator.git
-cd MT5VMindicator
-pip install -r requirements.txt
-```
-
-### Manual Installation
-```bash
-pip install pandas numpy matplotlib seaborn MetaTrader5
-```
-
-## 🎯 Use Cases
-
-- **Strategy Development**: Rapid iteration with fast backtesting
-- **Parameter Optimization**: Test multiple configurations quickly
-- **Risk Analysis**: Comprehensive risk metrics and visualization
-- **Production Trading**: Real-time strategy implementation
-- **Research**: Academic and professional trading research
-
-## 🧪 Usage Examples
-
-### Comprehensive Backtesting
-```bash
-python run_backtest.py
-```
-
-### Live Trading
-```bash
-python run_enhanced_strategy.py
-```
-
-
-## 🔄 Typical Workflow
-
-### 1. Data Preparation
-```bash
-# Check data quality
-python check_data_quality.py
-
-# Filter problematic data
-python data_gap_filter.py
-```
-
-### 2. Strategy Configuration
-```bash
-# Interactive configuration
-python config_editor.py
-
-# Or edit trading_config.json manually
-```
-
-### 3. Backtesting
-```bash
-# Run comprehensive backtest
-python run_backtest.py
-
-```
-
-### 4. Live Trading (Optional)
-```bash
-# Start live trading
-python run_enhanced_strategy.py
-```
-
-## ⚙️ Configuration
-
-Edit strategy parameters interactively:
-
-```bash
-python config_editor.py
-```
-
-Or manually edit `trading_config.json`:
-
-```json
-{
-  "symbols": {"primary": "15"},
-  "timeframe": "M1",
-  "indicators": {
-    "sma": {"enabled": true, "periods": [20, 50], "weight": 0.15},
-    "rsi": {"enabled": true, "period": 14, "weight": 0.20}
-  },
-  "risk_management": {
-    "position_sizing": {"risk_per_trade": 0.02},
-    "stop_loss": {"method": "fixed_pips", "fixed_pips": 50},
-    "take_profit": {"method": "risk_reward", "risk_reward_ratio": 2.0}
-  }
-}
-```
-
-## 📊 Key Optimizations
-
-### **1. Pre-calculated Indicators**
-```python
-# OLD: Recalculate every bar
-for i in range(min_bars, len(df)):
-    indicators = calculate_indicators(df.iloc[:i+1])
-
-# NEW: Calculate once, reuse
-indicators = precalculate_indicators(df)
-for i in range(min_bars, len(df)):
-    current_indicators = {name: series.iloc[i] for name, series in indicators.items()}
-```
-
-### **2. Vectorized Calculations**
-- All indicators use pandas/numpy vectorization
-- ~3x speedup for indicator computations
-
-### **3. Memory Optimization**
-- Equity curve sampling every 10 bars vs every bar
-- ~90% reduction in memory usage
-
-## 🏆 Performance Achievements
-
-- ✅ **29.6x speedup** over original engine
-- ✅ **99.87% accuracy** maintained
-- ✅ **83% memory reduction**
-- ✅ **Production-ready** reliability
-- ✅ **Scalable** for large datasets
-
-## 🤝 Contributing
-
-Contributions welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
-
-## 📞 Support
-
-If you encounter any issues or have questions, please open an issue on GitHub.
 
 ---
 
-**Built with ❤️ for high-performance algorithmic trading**
+## 📊 Features
 
-*Transform your trading strategies with lightning-fast backtesting!*
+### Trading Strategy
+- **EMA Crossover**: Fast EMA (9) / Slow EMA (41) crossover signals
+- **Direction Control**: Trade both, long-only, or short-only
+- **Duplicate Prevention**: Prevents multiple signals on same candle
+- **Session Filter**: Trade only during London/NY overlap sessions
+- **Spread Filter**: Skip trades when spread is too wide
 
+### Risk Management
+- **Position Sizing**: Based on max margin limit ($10 default)
+- **Stop Loss**: Fixed (50% of margin) or ATR-based
+- **Daily Loss Limit**: Stop trading at 75% daily loss
+- **Demo Account Only**: Safety block for real accounts
+
+### Dashboard & Monitoring
+- **Web Dashboard**: Real-time browser-based monitoring
+- **Position Tracking**: Open positions with live P&L
+- **Order History**: Last 20 orders with details
+- **Trading Controls**: Enable/disable, direction, panic button
+
+### Notifications
+- **Telegram Alerts**: Trade entry/exit notifications
+- **Error Alerts**: Connection and order failures
+- **Daily Summary**: End-of-day P&L report
+
+---
+
+## 🏗️ Architecture
+
+```
+start_EMAX/
+├── config/
+│   └── trading_config.json      # All parameters (editable)
+├── core/
+│   ├── mt5_connector.py         # MT5 connection manager
+│   ├── ema_strategy.py          # EMA crossover logic
+│   ├── position_manager.py      # Entry/exit/sizing
+│   └── telegram_notifier.py     # Telegram alerts
+├── dashboard/
+│   └── web_dashboard.py         # Flask web UI
+├── tests/
+│   └── test_ema_strategy.py     # Unit tests
+├── main.py                      # Entry point
+├── requirements.txt             # Dependencies
+└── README.md                    # This file
+```
+
+---
+
+## ⚡ Quick Start
+
+### Prerequisites
+1. **Wine** installed on Linux
+2. **Python 3.10+** installed in Wine
+3. **MetaTrader 5** installed in Wine (Axi broker)
+4. **MT5 logged in** to a demo account
+
+### Installation
+
+```bash
+# 1. Clone/navigate to the project
+cd ~/projects/axibot/start_EMAX
+
+# 2. Install dependencies in Wine Python
+wine pip install -r requirements.txt
+
+# 3. Start MT5 terminal
+wine "C:/Program Files/Axi MetaTrader 5 Terminal/terminal64.exe" &
+
+# 4. Wait for MT5 to login, then start the engine
+wine python main.py
+```
+
+### Access Dashboard
+Open in browser: **http://localhost:8080**
+
+---
+
+## ⚙️ Configuration
+
+Edit `config/trading_config.json`:
+
+### Key Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `account.demo_only` | `true` | Block real accounts (safety) |
+| `account.max_margin_per_trade_usd` | `10.0` | Max margin per trade |
+| `account.max_daily_loss_percent` | `75.0` | Stop at this daily loss |
+| `strategy.fast_ema_period` | `9` | Fast EMA period |
+| `strategy.slow_ema_period` | `41` | Slow EMA period |
+| `strategy.direction` | `"both"` | Trading direction |
+| `symbols.enabled` | `["XAGUSD"]` | Active symbols |
+| `stop_loss.type` | `"fixed"` | SL type (fixed/atr) |
+| `stop_loss.fixed_percent_of_margin` | `50.0` | SL as % of margin |
+| `session_filter.enabled` | `true` | Trade only during sessions |
+| `telegram.enabled` | `false` | Enable Telegram alerts |
+
+### Available Symbols
+- XAUUSD (Gold)
+- XAGUSD (Silver) - **default**
+- NAS100.fs (NASDAQ)
+- US500.fs (S&P 500)
+- GER40 (DAX)
+- FRA40 (CAC40)
+
+---
+
+## 📱 Dashboard Controls
+
+| Button | Action |
+|--------|--------|
+| ▶️ Enable Trading | Start generating and executing signals |
+| ⏸️ Disable Trading | Stop trading but keep monitoring |
+| 📊 Direction Selector | Choose: Both / Long Only / Short Only |
+| 🚨 PANIC | Close ALL positions immediately |
+
+---
+
+## 🧪 Running Tests
+
+```bash
+# Run all tests
+wine python tests/test_ema_strategy.py
+
+# Expected output:
+# Ran 13 tests in 0.019s
+# OK
+```
+
+---
+
+## 📊 Trading Logic
+
+### Entry Signals
+- **BUY**: Fast EMA crosses ABOVE Slow EMA
+- **SELL**: Fast EMA crosses BELOW Slow EMA
+
+### Exit Signals
+- **EMA Cross**: Opposite crossover
+- **Price Deviation**: Price 0.1% below/above slow EMA
+
+### Stop Loss
+- **Fixed**: 50% of margin used ($5 on $10 trade)
+- **ATR-based**: 1.5x ATR (configurable)
+
+---
+
+## 🔧 Troubleshooting
+
+### MT5 Connection Failed
+```
+Error: IPC initialize failed, MetaTrader 5 x64 not found
+```
+**Solution**: Start MT5 terminal first: `wine terminal64.exe`
+
+### Real Account Blocked
+```
+Error: Real account blocked - demo_only mode
+```
+**Solution**: This is a safety feature. Use a demo account or set `demo_only: false` (at your own risk).
+
+### Telegram Not Sending
+**Solution**: 
+1. Create bot with @BotFather
+2. Add `bot_token` and `chat_id` to config
+3. Set `telegram.enabled: true`
+
+---
+
+## 📝 Development Guidelines
+
+1. Always test on demo accounts
+2. Run syntax check before deploying: `wine python -m py_compile main.py`
+3. Commit to git before major changes
+4. Update this README with code changes
+5. Use config file for all parameters
+
+---
+
+## 📜 License
+
+MIT License - Use at your own risk. Trading involves financial risk.
+
+---
+
+## 🤝 Support
+
+For issues, check the logs in `trading_engine.log` or the dashboard.
+
+**Built with ❤️ for algorithmic trading on Linux**
