@@ -324,7 +324,13 @@ DASHBOARD_HTML = """
         <div class="status">
             <span class="status-indicator" id="connection-indicator"></span>
             <span id="connection-status">Connecting...</span>
+            | <strong>Timeframe:</strong> <span id="timeframe" style="color: #00d4ff;">M5</span>
             | Uptime: <span id="uptime">0s</span>
+        </div>
+        <div class="status" style="margin-top: 8px; font-size: 0.95em;">
+            ⏱️ Next refresh: <span id="countdown" style="color: #00ff88; font-weight: bold;">5</span>s
+            | Last check: <span id="last-check-status" style="color: #00ff88;">OK</span>
+            | <span id="last-bar-time" style="color: #888;">-</span>
         </div>
     </div>
     
@@ -413,6 +419,26 @@ DASHBOARD_HTML = """
             </div>
         </div>
         
+        <!-- EMA Spread / Trend Indicator -->
+        <div class="card">
+            <h2><span class="icon">📈</span> Trend Indicator</h2>
+            <div style="text-align: center; padding: 15px;">
+                <div style="font-size: 2.5em; font-weight: bold;" id="trend-direction">—</div>
+                <div style="font-size: 1.2em; margin-top: 5px;">
+                    EMA Spread: <span id="ema-spread" style="font-weight: bold;">0.00</span>
+                    (<span id="ema-spread-pct">0.00%</span>)
+                </div>
+                <div style="margin-top: 15px; background: rgba(0,0,0,0.3); border-radius: 10px; height: 20px; overflow: hidden;">
+                    <div id="trend-bar" style="height: 100%; width: 50%; background: linear-gradient(90deg, #666, #666); transition: all 0.5s ease;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8em; color: #888; margin-top: 5px;">
+                    <span>🔴 Bearish</span>
+                    <span>Neutral</span>
+                    <span>🟢 Bullish</span>
+                </div>
+            </div>
+        </div>
+        
         <!-- Configuration -->
         <div class="card">
             <h2><span class="icon">⚙️</span> Configuration</h2>
@@ -465,22 +491,40 @@ DASHBOARD_HTML = """
     
     <div class="refresh-time">
         Last updated: <span id="last-update">-</span>
-        | Auto-refresh every 5 seconds
+        | Symbol: <span id="active-symbol" style="color: #00d4ff;">XAGUSD</span>
+        | Refresh: <span id="refresh-rate">5</span>s
     </div>
     
     <script>
         const API_BASE = '';
         let refreshInterval;
+        let countdownInterval;
+        let countdown = 5;
+        const REFRESH_SECONDS = 5;
+        
+        function updateCountdown() {
+            countdown--;
+            if (countdown <= 0) {
+                countdown = REFRESH_SECONDS;
+            }
+            document.getElementById('countdown').textContent = countdown;
+        }
         
         async function fetchData() {
+            countdown = REFRESH_SECONDS;
+            document.getElementById('countdown').textContent = countdown;
             try {
                 const response = await fetch(API_BASE + '/api/status');
                 const data = await response.json();
                 updateDashboard(data);
+                document.getElementById('last-check-status').textContent = '✅ OK';
+                document.getElementById('last-check-status').style.color = '#00ff88';
             } catch (error) {
                 console.error('Failed to fetch data:', error);
                 document.getElementById('connection-status').textContent = 'Disconnected';
                 document.getElementById('connection-indicator').className = 'status-indicator status-disconnected';
+                document.getElementById('last-check-status').textContent = '❌ Error';
+                document.getElementById('last-check-status').style.color = '#ff4444';
             }
         }
         
@@ -530,6 +574,61 @@ DASHBOARD_HTML = """
                     (emaValues[firstSymbol].fast_ema || 0).toFixed(5);
                 document.getElementById('slow-ema').textContent = 
                     (emaValues[firstSymbol].slow_ema || 0).toFixed(5);
+                document.getElementById('active-symbol').textContent = firstSymbol;
+                if (emaValues[firstSymbol].updated) {
+                    document.getElementById('last-bar-time').textContent = 
+                        'Last bar: ' + emaValues[firstSymbol].updated.split('T')[1]?.split('.')[0] || emaValues[firstSymbol].updated;
+                }
+                
+                // Calculate and display EMA spread (trend indicator)
+                const fastEma = emaValues[firstSymbol].fast_ema || 0;
+                const slowEma = emaValues[firstSymbol].slow_ema || 0;
+                const spread = fastEma - slowEma;
+                const spreadPct = slowEma > 0 ? (spread / slowEma) * 100 : 0;
+                
+                // Update spread display
+                const spreadEl = document.getElementById('ema-spread');
+                spreadEl.textContent = spread.toFixed(5);
+                spreadEl.style.color = spread >= 0 ? '#00ff88' : '#ff4444';
+                
+                document.getElementById('ema-spread-pct').textContent = 
+                    (spreadPct >= 0 ? '+' : '') + spreadPct.toFixed(3) + '%';
+                
+                // Update trend direction emoji
+                const trendEl = document.getElementById('trend-direction');
+                if (spreadPct > 0.1) {
+                    trendEl.textContent = '🟢 BULLISH';
+                    trendEl.style.color = '#00ff88';
+                } else if (spreadPct < -0.1) {
+                    trendEl.textContent = '🔴 BEARISH';
+                    trendEl.style.color = '#ff4444';
+                } else {
+                    trendEl.textContent = '⚪ NEUTRAL';
+                    trendEl.style.color = '#888';
+                }
+                
+                // Update trend bar (visual representation)
+                const trendBar = document.getElementById('trend-bar');
+                // Normalize spread percentage to 0-100% bar width
+                // -1% = 0%, 0% = 50%, +1% = 100%
+                const barPct = Math.max(0, Math.min(100, 50 + (spreadPct * 50)));
+                trendBar.style.width = barPct + '%';
+                
+                if (spreadPct > 0) {
+                    trendBar.style.background = 'linear-gradient(90deg, #666 50%, #00ff88 100%)';
+                } else if (spreadPct < 0) {
+                    trendBar.style.background = 'linear-gradient(90deg, #ff4444 0%, #666 ' + barPct + '%)';
+                } else {
+                    trendBar.style.background = 'linear-gradient(90deg, #666, #666)';
+                }
+            }
+            
+            // Timeframe from strategy
+            const strategyStatus = data.strategy_status || {};
+            const symbolSettings = data.engine_status?.enabled_symbols || [];
+            if (symbolSettings.length > 0) {
+                // Display timeframe (from config, default M5)
+                document.getElementById('timeframe').textContent = 'M5';
             }
             
             // Last signal
@@ -642,7 +741,8 @@ DASHBOARD_HTML = """
         
         // Initial fetch and auto-refresh
         fetchData();
-        refreshInterval = setInterval(fetchData, 5000);
+        refreshInterval = setInterval(fetchData, REFRESH_SECONDS * 1000);
+        countdownInterval = setInterval(updateCountdown, 1000);
     </script>
 </body>
 </html>
