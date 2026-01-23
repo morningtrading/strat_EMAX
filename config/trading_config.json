@@ -29,37 +29,37 @@
         ],
         "settings": {
             "XAUUSD": {
-                "timeframe": "M5",
+                "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 50
             },
             "XAGUSD": {
-                "timeframe": "M5",
+                "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 30
             },
             "SP500": {
-                "timeframe": "M5",
+                "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 50
             },
             "US2000": {
-                "timeframe": "M5",
+                "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 50
             },
             "USTEC": {
-                "timeframe": "M5",
+                "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 100
             },
             "DE40": {
-                "timeframe": "M5",
+                "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 30
