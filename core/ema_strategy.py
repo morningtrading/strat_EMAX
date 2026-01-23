@@ -477,6 +477,7 @@ class EMAStrategy:
         
         if prev_fast is not None and prev_slow is not None:
             prev_sep = abs(prev_fast - prev_slow)
+            diff = curr_sep - prev_sep
             
             # Strict momentum check (any expansion is increasing momentum)
             if curr_sep > prev_sep:
@@ -485,10 +486,14 @@ class EMAStrategy:
                 momentum = "DECREASING"
             else:
                 momentum = "FLAT"
+                # Log why it's flat to debug user issue
+                if self.trading_enabled: # Reduce log spam, only valid symbols needed
+                    logger.debug(f"FLAT Momentum for separation: Curr={curr_sep:.8f}, Prev={prev_sep:.8f}, Diff={diff:.8f}")
         else:
             momentum = "FLAT"
+            diff = 0.0
             
-        return {"trend": trend, "momentum": momentum, "separation": curr_sep}
+        return {"trend": trend, "momentum": momentum, "separation": curr_sep, "diff": diff}
 
 
 def test_strategy():

@@ -656,7 +656,12 @@ DASHBOARD_HTML = """
                         <td style="font-weight: bold; color: #00d4ff;">${sym}</td>
                         <td>${d.price ? d.price.toFixed(2) : '-'}</td>
                         <td><span class="trend-badge ${trendClass}">${trendIcon}</span></td>
-                        <td>${momIcon} ${d.momentum}</td>
+                        <td>
+                            ${momIcon} ${d.momentum}
+                            <div style="font-size: 0.8em; color: #666;">
+                                (Diff: ${d.diff ? (d.diff > 0 ? '+' : '') + d.diff.toFixed(5) : '0.00'})
+                            </div>
+                        </td>
                     </tr>
                 `;
             }).join('');
