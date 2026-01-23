@@ -12,53 +12,53 @@
     },
     "symbols": {
         "enabled": [
-            "xauusd",
-            "xagusd",
-            "us2000",
-            "sp500FT",
-            "nas100fT",
-            "ger40FT"
+            "XAUUSD",
+            "XAGUSD",
+            "US2000",
+            "SP500ft",
+            "NAS100ft",
+            "GER40ft"
         ],
         "available": [
-            "xauusd",
-            "xagusd",
-            "us2000",
-            "sp500FT",
-            "nas100fT",
-            "ger40FT"
+            "XAUUSD",
+            "XAGUSD",
+            "US2000",
+            "SP500ft",
+            "NAS100ft",
+            "GER40ft"
         ],
         "settings": {
-            "xauusd": {
+            "XAUUSD": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "xagusd": {
+            "XAGUSD": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "us2000": {
+            "US2000": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "sp500FT": {
+            "SP500ft": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "nas100fT": {
+            "NAS100ft": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "ger40FT": {
+            "GER40ft": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
