@@ -467,12 +467,13 @@ DASHBOARD_HTML = """
                         <th style="width: 15%;">Symbol</th>
                         <th>Market</th>
                         <th>Price</th>
+                        <th>Min Vol</th>
                         <th>Trend (<span id="market-timeframe">M5</span>)</th>
                         <th>Momentum</th>
                     </tr>
                 </thead>
                 <tbody id="market-status-body">
-                    <tr><td colspan="5" style="text-align: center; color: #666;">Loading market data...</td></tr>
+                    <tr><td colspan="6" style="text-align: center; color: #666;">Loading market data...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -523,11 +524,12 @@ DASHBOARD_HTML = """
                     <th>Entry</th>
                     <th>Current</th>
                     <th>SL</th>
+                    <th>Margin</th>
                     <th>P&L</th>
                 </tr>
             </thead>
             <tbody id="positions-body">
-                <tr><td colspan="8" style="text-align: center; color: #666;">No open positions</td></tr>
+                <tr><td colspan="9" style="text-align: center; color: #666;">No open positions</td></tr>
             </tbody>
         </table>
     </div>
@@ -711,6 +713,7 @@ DASHBOARD_HTML = """
                         <td style="font-weight: bold; color: #00d4ff;">${sym}</td>
                         <td>${marketStatus}</td>
                         <td>${d.price ? d.price.toFixed(2) : '-'}</td>
+                        <td style="color: #888;">${d.min_volume || 0.01}</td>
                         <td><span class="trend-badge ${trendClass}">${trendIcon}</span></td>
                         <td>
                             ${momIcon} ${d.momentum}
@@ -727,7 +730,7 @@ DASHBOARD_HTML = """
             const tbody = document.getElementById('positions-body');
             
             if (positions.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">No open positions</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #666;">No open positions</td></tr>';
                 return;
             }
             
@@ -740,6 +743,7 @@ DASHBOARD_HTML = """
                     <td>${p.price_open?.toFixed(5)}</td>
                     <td>${p.price_current?.toFixed(5)}</td>
                     <td>${p.sl?.toFixed(5) || '-'}</td>
+                    <td style="color: #888;">$${(p.margin || 0).toFixed(2)}</td>
                     <td class="${p.profit >= 0 ? 'positive' : 'negative'}">$${p.profit?.toFixed(2)}</td>
                 </tr>
             `).join('');

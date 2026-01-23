@@ -352,6 +352,9 @@ class TradingEngine:
                     'momentum': analysis['momentum'],
                     'diff': analysis.get('diff', 0.0),
                     'trade_allowed': trade_allowed,
+                    'min_volume': symbol_info.get('volume_min', 0.01) if symbol_info else 0.01,
+                    'volume_step': symbol_info.get('volume_step', 0.01) if symbol_info else 0.01,
+                    'spread': symbol_info.get('spread', 0) if symbol_info else 0,
                     'polling': 'OK',
                     'updated': datetime.now().isoformat()
                 }
