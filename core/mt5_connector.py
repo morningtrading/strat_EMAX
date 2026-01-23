@@ -293,6 +293,8 @@ class MT5Connector:
             "volume_step": info.volume_step,
             "trade_contract_size": info.trade_contract_size,
             "margin_initial": info.margin_initial,
+            "trade_mode": info.trade_mode,  # 0=disabled, 4=full
+            "trade_allowed": info.trade_mode == 4,  # True if trading enabled
             "bid": tick.bid if tick else None,
             "ask": tick.ask if tick else None,
             "timestamp": datetime.now().isoformat()

@@ -464,14 +464,15 @@ DASHBOARD_HTML = """
             <table class="market-table">
                 <thead>
                     <tr>
-                        <th style="width: 20%;">Symbol</th>
-                        <th>Status</th>
+                        <th style="width: 15%;">Symbol</th>
+                        <th>Market</th>
+                        <th>Price</th>
                         <th>Trend (<span id="market-timeframe">M5</span>)</th>
                         <th>Momentum</th>
                     </tr>
                 </thead>
                 <tbody id="market-status-body">
-                    <tr><td colspan="4" style="text-align: center; color: #666;">Loading market data...</td></tr>
+                    <tr><td colspan="5" style="text-align: center; color: #666;">Loading market data...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -656,9 +657,15 @@ DASHBOARD_HTML = """
                 if (d.momentum === 'INCREASING') momIcon = '↗️';
                 if (d.momentum === 'DECREASING') momIcon = '↘️';
                 
+                // Market status badge
+                const marketStatus = d.trade_allowed ? 
+                    '<span style="color: #00ff88; font-weight: bold;">🟢 OPEN</span>' : 
+                    '<span style="color: #ff4444; font-weight: bold;">🔴 CLOSED</span>';
+                
                 return `
                     <tr>
                         <td style="font-weight: bold; color: #00d4ff;">${sym}</td>
+                        <td>${marketStatus}</td>
                         <td>${d.price ? d.price.toFixed(2) : '-'}</td>
                         <td><span class="trend-badge ${trendClass}">${trendIcon}</span></td>
                         <td>

@@ -341,12 +341,17 @@ class TradingEngine:
             slow = ema_vals.get('slow_ema', [])
             analysis = self.strategy.analyze_trend_momentum(fast, slow)
             
+            # Get trading status from symbol info
+            symbol_info = self.mt5.get_symbol_info(symbol)
+            trade_allowed = symbol_info.get('trade_allowed', False) if symbol_info else False
+            
             with self.dashboard_lock:
                 self.market_overview[symbol] = {
                     'price': bars[-1]['close'],
                     'trend': analysis['trend'],
                     'momentum': analysis['momentum'],
                     'diff': analysis.get('diff', 0.0),
+                    'trade_allowed': trade_allowed,
                     'polling': 'OK',
                     'updated': datetime.now().isoformat()
                 }
