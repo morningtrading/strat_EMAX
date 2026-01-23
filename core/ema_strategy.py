@@ -209,10 +209,10 @@ class EMAStrategy:
         current_low = bars[-1]['low']
         current_high = bars[-1]['high']
         
-        # Cache EMA values
+        # Cache EMA values (Store last 3 for trend analysis)
         self.ema_cache[symbol] = {
-            'fast_ema': current_fast,
-            'slow_ema': current_slow,
+            'fast_ema': fast_ema[-3:] if len(fast_ema) >= 3 else fast_ema,
+            'slow_ema': slow_ema[-3:] if len(slow_ema) >= 3 else slow_ema,
             'price': current_price,
             'updated': datetime.now().isoformat()
         }
