@@ -141,6 +141,12 @@ class TradingEngine:
         # Start time for uptime tracking
         self.start_time = None
         
+        # Connect to MT5 first to validate symbols
+        if self.mt5.connect():
+            self.enabled_symbols = self._validate_symbols()
+        else:
+            logger.warning("Could not connect to MT5 for symbol validation. Using config symbols.")
+        
         logger.info("Trading Engine initialized")
         logger.info(f"Enabled symbols: {self.enabled_symbols}")
         
@@ -148,6 +154,10 @@ class TradingEngine:
         """Validate that enabled symbols exist on the broker"""
         valid_symbols = []
         
+        # Ensure connected
+        if not self.mt5.connected:
+            return self.enabled_symbols
+            
         for symbol in self.enabled_symbols:
             info = self.mt5.get_symbol_info(symbol)
             if info:
@@ -173,6 +183,11 @@ class TradingEngine:
         self.trading_enabled = self.config.get('strategy', {}).get('trading_enabled', True)
         self.direction = self.config.get('strategy', {}).get('direction', 'both')
         self.enabled_symbols = self.config.get('symbols', {}).get('enabled', [])
+        
+        # Re-validate symbols
+        if self.mt5.connected:
+            self.enabled_symbols = self._validate_symbols()
+            
         logger.info("Configuration reloaded")
     
     def connect(self) -> bool:
