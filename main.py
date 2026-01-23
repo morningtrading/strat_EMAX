@@ -358,19 +358,35 @@ class TradingEngine:
         if signal.action == SignalType.BUY:
             result = self.position_manager.open_position(symbol, "LONG", signal.reason)
             if result.success:
+                print(f"\n{'='*50}")
+                print(f"🟢 TRADE OPENED: {symbol} LONG")
+                print(f"   Ticket: {result.ticket}")
+                print(f"   Volume: {result.volume}")
+                print(f"   Price:  {result.price}")
+                print(f"   SL:     {result.sl}")
+                print(f"{'='*50}\n")
                 self.telegram.notify_trade_entry(
                     symbol, "LONG", result.volume, result.price, result.sl, signal.reason
                 )
             elif result.error:
+                print(f"\n❌ ORDER FAILED [{symbol}]: {result.error}\n")
                 self.telegram.notify_error("Order Failed", result.error, symbol)
         
         elif signal.action == SignalType.SELL:
             result = self.position_manager.open_position(symbol, "SHORT", signal.reason)
             if result.success:
+                print(f"\n{'='*50}")
+                print(f"🔴 TRADE OPENED: {symbol} SHORT")
+                print(f"   Ticket: {result.ticket}")
+                print(f"   Volume: {result.volume}")
+                print(f"   Price:  {result.price}")
+                print(f"   SL:     {result.sl}")
+                print(f"{'='*50}\n")
                 self.telegram.notify_trade_entry(
                     symbol, "SHORT", result.volume, result.price, result.sl, signal.reason
                 )
             elif result.error:
+                print(f"\n❌ ORDER FAILED [{symbol}]: {result.error}\n")
                 self.telegram.notify_error("Order Failed", result.error, symbol)
         
         elif signal.action in [SignalType.EXIT_LONG, SignalType.EXIT_SHORT]:

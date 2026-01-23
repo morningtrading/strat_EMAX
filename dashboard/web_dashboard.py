@@ -491,6 +491,7 @@ DASHBOARD_HTML = """
         <table class="positions-table">
             <thead>
                 <tr>
+                    <th>Ticket</th>
                     <th>Symbol</th>
                     <th>Type</th>
                     <th>Volume</th>
@@ -501,7 +502,7 @@ DASHBOARD_HTML = """
                 </tr>
             </thead>
             <tbody id="positions-body">
-                <tr><td colspan="7" style="text-align: center; color: #666;">No open positions</td></tr>
+                <tr><td colspan="8" style="text-align: center; color: #666;">No open positions</td></tr>
             </tbody>
         </table>
     </div>
@@ -681,6 +682,7 @@ DASHBOARD_HTML = """
             
             tbody.innerHTML = positions.map(p => `
                 <tr>
+                    <td style="font-weight: bold; color: #00d4ff;">${p.ticket}</td>
                     <td>${p.symbol}</td>
                     <td>${p.type}</td>
                     <td>${p.volume}</td>

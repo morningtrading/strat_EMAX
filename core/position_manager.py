@@ -463,7 +463,7 @@ class PositionManager:
             )
             
             self.trade_history.append(trade_result)
-            logger.info(f"[{symbol}] Position opened: {direction} {volume} @ {entry_price}, SL={sl_price}")
+            logger.info(f"[{symbol}] Position opened: {direction} {volume} @ {entry_price}, SL={sl_price}, Ticket={result.get('ticket')}")
             
             return trade_result
         else:
