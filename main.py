@@ -208,8 +208,9 @@ class TradingEngine:
                     self.mt5.disconnect()
                     return False
             
-            # Send connection notification
+            # Send connection notification and store initial balance
             account_info = self.mt5.get_account_summary()
+            self.initial_balance = account_info.get('balance', 0)
             self.telegram.send_status(True, account_info)
             
             return True
@@ -383,8 +384,26 @@ class TradingEngine:
                 print(f"   Price:  {result.price}")
                 print(f"   SL:     {result.sl}")
                 print(f"{'='*50}\n")
+                
+                # Get account info and EMA values for telegram
+                account = self.mt5.get_account_summary()
+                bars = self.mt5.get_rates(symbol, timeframe, 100)
+                fast_ema = slow_ema = None
+                if bars is not None:
+                    symbol_settings = self.config.get('symbols', {}).get('settings', {}).get(symbol, {})
+                    fast_period = symbol_settings.get('fast_ema', 9)
+                    slow_period = symbol_settings.get('slow_ema', 41)
+                    from core.ema_strategy import EMAStrategy
+                    fast_ema = EMAStrategy.calculate_ema(bars['close'], fast_period)[-1]
+                    slow_ema = EMAStrategy.calculate_ema(bars['close'], slow_period)[-1]
+                
                 self.telegram.notify_trade_entry(
-                    symbol, "LONG", result.volume, result.price, result.sl, signal.reason
+                    symbol, "LONG", result.volume, result.price, result.sl, signal.reason,
+                    margin=result.margin_used,
+                    fast_ema=fast_ema,
+                    slow_ema=slow_ema,
+                    balance=account.get('balance'),
+                    equity=account.get('equity')
                 )
             elif result.error:
                 print(f"\n❌ ORDER FAILED [{symbol}]: {result.error}\n")
@@ -400,8 +419,26 @@ class TradingEngine:
                 print(f"   Price:  {result.price}")
                 print(f"   SL:     {result.sl}")
                 print(f"{'='*50}\n")
+                
+                # Get account info and EMA values for telegram
+                account = self.mt5.get_account_summary()
+                bars = self.mt5.get_rates(symbol, timeframe, 100)
+                fast_ema = slow_ema = None
+                if bars is not None:
+                    symbol_settings = self.config.get('symbols', {}).get('settings', {}).get(symbol, {})
+                    fast_period = symbol_settings.get('fast_ema', 9)
+                    slow_period = symbol_settings.get('slow_ema', 41)
+                    from core.ema_strategy import EMAStrategy
+                    fast_ema = EMAStrategy.calculate_ema(bars['close'], fast_period)[-1]
+                    slow_ema = EMAStrategy.calculate_ema(bars['close'], slow_period)[-1]
+                
                 self.telegram.notify_trade_entry(
-                    symbol, "SHORT", result.volume, result.price, result.sl, signal.reason
+                    symbol, "SHORT", result.volume, result.price, result.sl, signal.reason,
+                    margin=result.margin_used,
+                    fast_ema=fast_ema,
+                    slow_ema=slow_ema,
+                    balance=account.get('balance'),
+                    equity=account.get('equity')
                 )
             elif result.error:
                 print(f"\n❌ ORDER FAILED [{symbol}]: {result.error}\n")
@@ -410,12 +447,33 @@ class TradingEngine:
         elif signal.action in [SignalType.EXIT_LONG, SignalType.EXIT_SHORT]:
             if positions:
                 pos = positions[0]
+                entry_time = pos.get('time', 0)
+                current_time = datetime.now().timestamp()
+                hold_seconds = int(current_time - entry_time)
+                hold_time = f"{hold_seconds // 3600}h {(hold_seconds % 3600) // 60}m"
+                
                 result = self.position_manager.close_position(symbol, pos['ticket'], signal.reason)
                 if result.success:
                     direction = "LONG" if signal.action == SignalType.EXIT_LONG else "SHORT"
+                    
+                    # Calculate pips
+                    price_diff = abs(result.price - pos['price_open'])
+                    symbol_info = self.mt5.get_symbol_info(symbol)
+                    point = symbol_info.get('point', 0.00001) if symbol_info else 0.00001
+                    pips = price_diff / point / 10 if 'JPY' not in symbol else price_diff / point
+                    
+                    # Get account info
+                    account = self.mt5.get_account_summary()
+                    total_pnl = account.get('balance', 0) - self.initial_balance if hasattr(self, 'initial_balance') else None
+                    
                     self.telegram.notify_trade_exit(
                         symbol, direction, pos['volume'],
-                        pos['price_open'], result.price, pos['profit'], signal.reason
+                        pos['price_open'], result.price, pos['profit'], signal.reason,
+                        hold_time=hold_time,
+                        pips=pips,
+                        balance=account.get('balance'),
+                        equity=account.get('equity'),
+                        total_pnl=total_pnl
                     )
     
     def run(self, dashboard_only: bool = False):

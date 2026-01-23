@@ -142,9 +142,12 @@ class TelegramNotifier:
             return False
     
     def notify_trade_entry(self, symbol: str, direction: str, volume: float,
-                          price: float, sl: Optional[float], reason: str):
+                          price: float, sl: Optional[float], reason: str,
+                          margin: Optional[float] = None, fast_ema: Optional[float] = None,
+                          slow_ema: Optional[float] = None, balance: Optional[float] = None,
+                          equity: Optional[float] = None):
         """
-        Send trade entry notification
+        Send trade entry notification with detailed parameters
         
         Args:
             symbol: Trading symbol
@@ -153,6 +156,11 @@ class TelegramNotifier:
             price: Entry price
             sl: Stop loss price
             reason: Entry reason
+            margin: Margin used for position
+            fast_ema: Fast EMA value at entry
+            slow_ema: Slow EMA value at entry
+            balance: Account balance at entry
+            equity: Account equity at entry
         """
         if not self.notify_entry:
             return
@@ -160,6 +168,7 @@ class TelegramNotifier:
         emoji = "🟢" if direction == "LONG" else "🔴"
         arrow = "⬆️" if direction == "LONG" else "⬇️"
         
+        # Build base message
         message = f"""
 {emoji} <b>TRADE OPENED</b> {arrow}
 
@@ -168,7 +177,35 @@ class TelegramNotifier:
 <b>Volume:</b> {volume} lots
 <b>Entry:</b> {price}
 <b>Stop Loss:</b> {sl if sl else 'None'}
-
+"""
+        
+        # Add EMA values if provided
+        if fast_ema is not None and slow_ema is not None:
+            message += f"""
+<b>📊 EMA Crossover:</b>
+  • Fast EMA: {fast_ema:.4f}
+  • Slow EMA: {slow_ema:.4f}
+  • Spread: {abs(fast_ema - slow_ema):.4f}
+"""
+        
+        # Add margin info if provided
+        if margin is not None:
+            message += f"""
+<b>💰 Position:</b>
+  • Margin Used: ${margin:.2f}
+  • Risk: ${abs(price - sl) * volume if sl else 0:.2f}
+"""
+        
+        # Add account info if provided
+        if balance is not None and equity is not None:
+            message += f"""
+<b>💼 Account:</b>
+  • Balance: ${balance:.2f}
+  • Equity: ${equity:.2f}
+  • Free Margin: ${equity - (margin if margin else 0):.2f}
+"""
+        
+        message += f"""
 <b>Reason:</b> {reason}
 
 <i>🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
@@ -177,9 +214,11 @@ class TelegramNotifier:
     
     def notify_trade_exit(self, symbol: str, direction: str, volume: float,
                          entry_price: float, exit_price: float, pnl: float,
-                         reason: str):
+                         reason: str, hold_time: Optional[str] = None,
+                         pips: Optional[float] = None, balance: Optional[float] = None,
+                         equity: Optional[float] = None, total_pnl: Optional[float] = None):
         """
-        Send trade exit notification with P&L
+        Send trade exit notification with detailed P&L analysis
         
         Args:
             symbol: Trading symbol
@@ -189,13 +228,20 @@ class TelegramNotifier:
             exit_price: Exit price
             pnl: Profit/loss in USD
             reason: Exit reason
+            hold_time: How long position was held
+            pips: Pips gained/lost
+            balance: Account balance after exit
+            equity: Account equity after exit
+            total_pnl: Total account P&L
         """
         if not self.notify_exit:
             return
         
         pnl_emoji = "💰" if pnl >= 0 else "💸"
         result = "WIN" if pnl >= 0 else "LOSS"
+        pnl_percent = ((exit_price - entry_price) / entry_price * 100) if direction == "LONG" else ((entry_price - exit_price) / entry_price * 100)
         
+        # Build base message
         message = f"""
 {pnl_emoji} <b>TRADE CLOSED - {result}</b>
 
@@ -204,8 +250,28 @@ class TelegramNotifier:
 <b>Volume:</b> {volume} lots
 <b>Entry:</b> {entry_price}
 <b>Exit:</b> {exit_price}
-<b>P&L:</b> <code>${pnl:+.2f}</code>
-
+<b>P&L:</b> <code>${pnl:+.2f}</code> ({pnl_percent:+.2f}%)
+"""
+        
+        # Add pips if provided
+        if pips is not None:
+            message += f"<b>Pips:</b> {pips:+.1f}\n"
+        
+        # Add hold time if provided
+        if hold_time:
+            message += f"<b>Duration:</b> {hold_time}\n"
+        
+        # Add account summary if provided
+        if balance is not None and equity is not None:
+            message += f"""
+<b>💼 Account After Close:</b>
+  • Balance: ${balance:.2f}
+  • Equity: ${equity:.2f}
+"""
+            if total_pnl is not None:
+                message += f"  • Total P&L: <code>${total_pnl:+.2f}</code>\n"
+        
+        message += f"""
 <b>Reason:</b> {reason}
 
 <i>🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>

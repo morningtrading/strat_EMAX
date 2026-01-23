@@ -133,9 +133,9 @@
         "ema_recalc_on_new_bar": true
     },
     "telegram": {
-        "enabled": false,
-        "bot_token": "",
-        "chat_id": "",
+        "enabled": true,
+        "bot_token": "8296046299:AAE20BPkuOJPUHzJCJQUs2wdWIcEsa3d4AU",
+        "chat_id": "5890207399",
         "notify_on_entry": true,
         "notify_on_exit": true,
         "notify_on_error": true,
