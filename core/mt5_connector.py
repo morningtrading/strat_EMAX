@@ -605,6 +605,16 @@ class MT5Connector:
         # Send order
         result = mt5.order_send(request)
         
+        # Handle None result (MT5 rejected silently)
+        if result is None:
+            error_info = mt5.last_error()
+            logger.error(f"Order rejected (None result): {error_info}")
+            return {
+                "success": False,
+                "error": f"MT5 rejected order: {error_info}",
+                "retcode": -1
+            }
+        
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             logger.info(f"Order placed: {order_type} {volume} {symbol} @ {execution_price}")
             return {
@@ -618,7 +628,7 @@ class MT5Connector:
                 "tp": tp
             }
         else:
-            logger.error(f"Order failed: {result.comment}")
+            logger.error(f"Order failed: {result.comment} (retcode: {result.retcode})")
             return {
                 "success": False,
                 "error": result.comment,
