@@ -373,6 +373,7 @@ DASHBOARD_HTML = """
         }
         .trend-bull { background: rgba(0, 255, 136, 0.2); color: #00ff88; }
         .trend-bear { background: rgba(255, 68, 68, 0.2); color: #ff4444; }
+        .trend-wait { background: rgba(255, 170, 0, 0.2); color: #ffaa00; }
     </style>
 </head>
 <body>
@@ -643,8 +644,8 @@ DASHBOARD_HTML = """
                 const d = marketData[sym];
                 if (!d) return '';
                 
-                const trendClass = d.trend === 'BULL' ? 'trend-bull' : (d.trend === 'BEAR' ? 'trend-bear' : '');
-                const trendIcon = d.trend === 'BULL' ? '🟢 BULL' : (d.trend === 'BEAR' ? '🔴 BEAR' : '-');
+                const trendClass = d.trend === 'BULL' ? 'trend-bull' : (d.trend === 'BEAR' ? 'trend-bear' : 'trend-wait');
+                const trendIcon = d.trend === 'BULL' ? '🟢 BULL' : (d.trend === 'BEAR' ? '🔴 BEAR' : '⏳ WAIT');
                 
                 let momIcon = '➡️';
                 if (d.momentum === 'INCREASING') momIcon = '↗️';

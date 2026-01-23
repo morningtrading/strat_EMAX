@@ -478,10 +478,10 @@ class EMAStrategy:
         if prev_fast is not None and prev_slow is not None:
             prev_sep = abs(prev_fast - prev_slow)
             
-            # 1% change threshold for momentum
-            if curr_sep > prev_sep * 1.01:
+            # Strict momentum check (any expansion is increasing momentum)
+            if curr_sep > prev_sep:
                 momentum = "INCREASING"
-            elif curr_sep < prev_sep * 0.99:
+            elif curr_sep < prev_sep:
                 momentum = "DECREASING"
             else:
                 momentum = "FLAT"
