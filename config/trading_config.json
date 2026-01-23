@@ -12,53 +12,53 @@
     },
     "symbols": {
         "enabled": [
-            "XAUUSD",
-            "XAGUSD",
-            "SP500",
-            "US2000",
-            "USTEC",
-            "DE40"
+            "xauusd",
+            "xagusd",
+            "us2000",
+            "sp500FT",
+            "nas100fT",
+            "ger40FT"
         ],
         "available": [
-            "XAUUSD",
-            "XAGUSD",
-            "SP500",
-            "US2000",
-            "USTEC",
-            "DE40"
+            "xauusd",
+            "xagusd",
+            "us2000",
+            "sp500FT",
+            "nas100fT",
+            "ger40FT"
         ],
         "settings": {
-            "XAUUSD": {
+            "xauusd": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "XAGUSD": {
+            "xagusd": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "SP500": {
+            "us2000": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "US2000": {
+            "sp500FT": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "USTEC": {
+            "nas100fT": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 9999
             },
-            "DE40": {
+            "ger40FT": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
