@@ -461,12 +461,16 @@ class EMAStrategy:
             Dict: {'state': 'BULL'/'BEAR', 'momentum': 'INCREASING'/'DECREASING'/'FLAT'}
         """
         if len(fast_ema) < 3 or len(slow_ema) < 3:
+            if self.trading_enabled:
+                logger.debug(f"Trend Analysis Failed: Insufficient history. FastLen={len(fast_ema)}, SlowLen={len(slow_ema)}")
             return {"trend": "N/A", "momentum": "FLAT"}
             
         curr_fast, prev_fast = fast_ema[-1], fast_ema[-2]
         curr_slow, prev_slow = slow_ema[-1], slow_ema[-2]
         
         if curr_fast is None or curr_slow is None:
+             if self.trading_enabled:
+                 logger.debug(f"Trend Analysis Failed: Null values. Fast={curr_fast}, Slow={curr_slow}")
              return {"trend": "N/A", "momentum": "FLAT"}
         
         # Trend State
