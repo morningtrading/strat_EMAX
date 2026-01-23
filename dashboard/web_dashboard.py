@@ -477,6 +477,30 @@ DASHBOARD_HTML = """
             </table>
         </div>
         
+        <!-- Account Info -->
+        <div class="card">
+            <h2><span class="icon">🏦</span> Account Info</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.95em;">
+                <div><strong>Broker:</strong></div>
+                <div id="broker-name" style="color: #00d4ff;">-</div>
+                
+                <div><strong>Account:</strong></div>
+                <div id="account-number" style="color: #00d4ff;">-</div>
+                
+                <div><strong>Server:</strong></div>
+                <div id="server-name" style="color: #888;">-</div>
+                
+                <div><strong>Mode:</strong></div>
+                <div id="account-mode">-</div>
+                
+                <div><strong>Strategy:</strong></div>
+                <div id="strategy-name" style="color: #00ff88;">-</div>
+                
+                <div><strong>Leverage:</strong></div>
+                <div id="account-leverage" style="color: #888;">-</div>
+            </div>
+        </div>
+        
         <!-- Configuration -->
         <div class="card">
             <h2><span class="icon">⚙️</span> Configuration</h2>
@@ -623,6 +647,26 @@ DASHBOARD_HTML = """
                 sl_type: manager.sl_type,
                 max_margin: manager.max_margin_per_trade
             }, null, 2);
+            
+            // Account Info card
+            const conn = data.connection_status || {};
+            const strategy = data.strategy_status || {};
+            document.getElementById('broker-name').textContent = conn.company || 'Unknown';
+            document.getElementById('account-number').textContent = conn.account || '-';
+            document.getElementById('server-name').textContent = conn.server || '-';
+            document.getElementById('account-leverage').textContent = account.leverage ? `1:${account.leverage}` : '-';
+            document.getElementById('strategy-name').textContent = strategy.fast_period && strategy.slow_period 
+                ? `EMA ${strategy.fast_period}/${strategy.slow_period}` : 'EMA Crossover';
+            
+            // Mode badge (DEMO/LIVE)
+            const modeEl = document.getElementById('account-mode');
+            if (conn.is_demo === true) {
+                modeEl.innerHTML = '<span style="color: #00ff88; font-weight: bold;">🧪 DEMO</span>';
+            } else if (conn.is_demo === false) {
+                modeEl.innerHTML = '<span style="color: #ff4444; font-weight: bold;">⚠️ LIVE</span>';
+            } else {
+                modeEl.textContent = '-';
+            }
             
             // Positions table
             updatePositionsTable(data.positions || []);
