@@ -132,6 +132,7 @@ class TradingEngine:
                 'uptime': 0
             }
         }
+        self.market_overview = {}
         self.dashboard_lock = threading.Lock()
         
         # Track last bar times to detect new bars
@@ -263,6 +264,9 @@ class TradingEngine:
                 'paused': self.paused,
                 'uptime': (datetime.now() - self.start_time).seconds if self.start_time else 0
             }
+            
+            # Market Overview
+            self.dashboard_data['market_overview'] = dict(self.market_overview)
     
     def _process_symbol(self, symbol: str):
         """
@@ -305,6 +309,22 @@ class TradingEngine:
                 'timestamp': signal.timestamp
             }
             self.dashboard_data['ema_values'][symbol] = self.strategy.get_ema_values(symbol)
+            
+        # Update Market Status (Sequential / Thread-Safe)
+        ema_vals = self.strategy.get_ema_values(symbol)
+        if ema_vals:
+            fast = ema_vals.get('fast', [])
+            slow = ema_vals.get('slow', [])
+            analysis = self.strategy.analyze_trend_momentum(fast, slow)
+            
+            with self.dashboard_lock:
+                self.market_overview[symbol] = {
+                    'price': bars[-1]['close'],
+                    'trend': analysis['trend'],
+                    'momentum': analysis['momentum'],
+                    'polling': 'OK',
+                    'updated': datetime.now().isoformat()
+                }
         
         # Execute if trading enabled and we have a trading signal
         if not self.trading_enabled or self.paused:

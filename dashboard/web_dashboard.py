@@ -58,6 +58,41 @@ except ImportError:
 logger = logging.getLogger('WebDashboard')
 
 # Dashboard HTML template
+# ... (HTML content truncated for brevity, available in DASHBOARD_HTML variable)
+
+app = Flask(__name__)
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+
+class SafeJSONEncoder(json.JSONEncoder):
+    """
+    JSON Encoder that handles NaN/Infinity by converting to null
+    """
+    def default(self, obj):
+        try:
+            if isinstance(obj, float):
+                if obj != obj: # NaN check
+                    return None
+                if obj == float('inf') or obj == float('-inf'):
+                    return None
+            return super().default(obj)
+        except:
+             return str(obj)
+
+def clean_nans(data):
+    """Recursively convert NaNs to None for JSON safety"""
+    if isinstance(data, dict):
+        return {k: clean_nans(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [clean_nans(v) for v in data]
+    elif isinstance(data, float):
+        if data != data or data == float('inf') or data == float('-inf'):
+            return None
+    return data
+
+app.json_encoder = SafeJSONEncoder
+
+# Dashboard HTML template
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -316,6 +351,28 @@ DASHBOARD_HTML = """
             max-height: 200px;
             overflow-y: auto;
         }
+        .market-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+        .market-table th, .market-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .market-table th {
+            color: #888;
+            font-weight: normal;
+        }
+        .trend-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            display: inline-block;
+        }
+        .trend-bull { background: rgba(0, 255, 136, 0.2); color: #00ff88; }
+        .trend-bear { background: rgba(255, 68, 68, 0.2); color: #ff4444; }
     </style>
 </head>
 <body>
@@ -400,43 +457,22 @@ DASHBOARD_HTML = """
             </div>
         </div>
         
-        <!-- Strategy Status -->
-        <div class="card">
-            <h2><span class="icon">🎯</span> Strategy</h2>
-            <div id="strategy-info">
-                <p><strong>EMA Crossover</strong></p>
-                <div class="ema-display">
-                    <div class="ema-item ema-fast">
-                        Fast EMA (9): <span id="fast-ema">-</span>
-                    </div>
-                    <div class="ema-item ema-slow">
-                        Slow EMA (41): <span id="slow-ema">-</span>
-                    </div>
-                </div>
-                <p style="margin-top: 15px;">
-                    Last Signal: <span class="signal-badge signal-hold" id="last-signal">HOLD</span>
-                </p>
-            </div>
-        </div>
-        
-        <!-- EMA Spread / Trend Indicator -->
-        <div class="card">
-            <h2><span class="icon">📈</span> Trend Indicator</h2>
-            <div style="text-align: center; padding: 15px;">
-                <div style="font-size: 2.5em; font-weight: bold;" id="trend-direction">—</div>
-                <div style="font-size: 1.2em; margin-top: 5px;">
-                    EMA Spread: <span id="ema-spread" style="font-weight: bold;">0.00</span>
-                    (<span id="ema-spread-pct">0.00%</span>)
-                </div>
-                <div style="margin-top: 15px; background: rgba(0,0,0,0.3); border-radius: 10px; height: 20px; overflow: hidden;">
-                    <div id="trend-bar" style="height: 100%; width: 50%; background: linear-gradient(90deg, #666, #666); transition: all 0.5s ease;"></div>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.8em; color: #888; margin-top: 5px;">
-                    <span>🔴 Bearish</span>
-                    <span>Neutral</span>
-                    <span>🟢 Bullish</span>
-                </div>
-            </div>
+        <!-- Market Status -->
+        <div class="card" style="grid-column: span 2;">
+            <h2><span class="icon">🌍</span> Market Status</h2>
+            <table class="market-table">
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Symbol</th>
+                        <th>Status</th>
+                        <th>Trend (M5)</th>
+                        <th>Momentum</th>
+                    </tr>
+                </thead>
+                <tbody id="market-status-body">
+                    <tr><td colspan="4" style="text-align: center; color: #666;">Loading market data...</td></tr>
+                </tbody>
+            </table>
         </div>
         
         <!-- Configuration -->
@@ -566,81 +602,6 @@ DASHBOARD_HTML = """
             document.getElementById('loss-limit').textContent = 
                 (manager.current_daily_loss || 0).toFixed(1) + '% / ' + (manager.daily_loss_limit || 75) + '%';
             
-            // Strategy/EMA
-            const emaValues = data.ema_values || {};
-            const firstSymbol = Object.keys(emaValues)[0];
-            if (firstSymbol && emaValues[firstSymbol]) {
-                document.getElementById('fast-ema').textContent = 
-                    (emaValues[firstSymbol].fast_ema || 0).toFixed(5);
-                document.getElementById('slow-ema').textContent = 
-                    (emaValues[firstSymbol].slow_ema || 0).toFixed(5);
-                document.getElementById('active-symbol').textContent = firstSymbol;
-                if (emaValues[firstSymbol].updated) {
-                    document.getElementById('last-bar-time').textContent = 
-                        'Last bar: ' + emaValues[firstSymbol].updated.split('T')[1]?.split('.')[0] || emaValues[firstSymbol].updated;
-                }
-                
-                // Calculate and display EMA spread (trend indicator)
-                const fastEma = emaValues[firstSymbol].fast_ema || 0;
-                const slowEma = emaValues[firstSymbol].slow_ema || 0;
-                const spread = fastEma - slowEma;
-                const spreadPct = slowEma > 0 ? (spread / slowEma) * 100 : 0;
-                
-                // Update spread display
-                const spreadEl = document.getElementById('ema-spread');
-                spreadEl.textContent = spread.toFixed(5);
-                spreadEl.style.color = spread >= 0 ? '#00ff88' : '#ff4444';
-                
-                document.getElementById('ema-spread-pct').textContent = 
-                    (spreadPct >= 0 ? '+' : '') + spreadPct.toFixed(3) + '%';
-                
-                // Update trend direction emoji
-                const trendEl = document.getElementById('trend-direction');
-                if (spreadPct > 0.1) {
-                    trendEl.textContent = '🟢 BULLISH';
-                    trendEl.style.color = '#00ff88';
-                } else if (spreadPct < -0.1) {
-                    trendEl.textContent = '🔴 BEARISH';
-                    trendEl.style.color = '#ff4444';
-                } else {
-                    trendEl.textContent = '⚪ NEUTRAL';
-                    trendEl.style.color = '#888';
-                }
-                
-                // Update trend bar (visual representation)
-                const trendBar = document.getElementById('trend-bar');
-                // Normalize spread percentage to 0-100% bar width
-                // -1% = 0%, 0% = 50%, +1% = 100%
-                const barPct = Math.max(0, Math.min(100, 50 + (spreadPct * 50)));
-                trendBar.style.width = barPct + '%';
-                
-                if (spreadPct > 0) {
-                    trendBar.style.background = 'linear-gradient(90deg, #666 50%, #00ff88 100%)';
-                } else if (spreadPct < 0) {
-                    trendBar.style.background = 'linear-gradient(90deg, #ff4444 0%, #666 ' + barPct + '%)';
-                } else {
-                    trendBar.style.background = 'linear-gradient(90deg, #666, #666)';
-                }
-            }
-            
-            // Timeframe from strategy
-            const strategyStatus = data.strategy_status || {};
-            const symbolSettings = data.engine_status?.enabled_symbols || [];
-            if (symbolSettings.length > 0) {
-                // Display timeframe (from config, default M5)
-                document.getElementById('timeframe').textContent = 'M5';
-            }
-            
-            // Last signal
-            const signals = data.last_signals || {};
-            const signalSymbol = Object.keys(signals)[0];
-            if (signalSymbol && signals[signalSymbol]) {
-                const sig = signals[signalSymbol];
-                const signalEl = document.getElementById('last-signal');
-                signalEl.textContent = sig.action;
-                signalEl.className = 'signal-badge signal-' + sig.action.toLowerCase().replace('_', '-');
-            }
-            
             // Trading controls
             const engine = data.engine_status || {};
             document.getElementById('btn-enable').disabled = engine.trading_enabled;
@@ -662,8 +623,42 @@ DASHBOARD_HTML = """
             // History table
             updateHistoryTable(data.orders_history || []);
             
+            // Market Status table
+            updateMarketStatus(data.market_overview || {});
+            
             // Update time
             document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+        }
+        
+        function updateMarketStatus(marketData) {
+            const tbody = document.getElementById('market-status-body');
+            const symbols = Object.keys(marketData).sort();
+            
+            if (symbols.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #666;">No market data yet</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = symbols.map(sym => {
+                const d = marketData[sym];
+                if (!d) return '';
+                
+                const trendClass = d.trend === 'BULL' ? 'trend-bull' : (d.trend === 'BEAR' ? 'trend-bear' : '');
+                const trendIcon = d.trend === 'BULL' ? '🟢 BULL' : (d.trend === 'BEAR' ? '🔴 BEAR' : '-');
+                
+                let momIcon = '➡️';
+                if (d.momentum === 'INCREASING') momIcon = '↗️';
+                if (d.momentum === 'DECREASING') momIcon = '↘️';
+                
+                return `
+                    <tr>
+                        <td style="font-weight: bold; color: #00d4ff;">${sym}</td>
+                        <td>${d.price ? d.price.toFixed(2) : '-'}</td>
+                        <td><span class="trend-badge ${trendClass}">${trendIcon}</span></td>
+                        <td>${momIcon} ${d.momentum}</td>
+                    </tr>
+                `;
+            }).join('');
         }
         
         function updatePositionsTable(positions) {
@@ -794,7 +789,8 @@ class WebDashboard:
         @self.app.route('/api/status')
         def api_status():
             if self.engine:
-                return jsonify(self.engine.get_dashboard_data())
+                data = self.engine.get_dashboard_data()
+                return jsonify(clean_nans(data))
             return jsonify({"error": "Engine not connected"})
         
         @self.app.route('/api/positions')

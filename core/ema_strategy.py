@@ -453,6 +453,43 @@ class EMAStrategy:
             "ema_cache": dict(self.ema_cache)
         }
 
+    def analyze_trend_momentum(self, fast_ema: List[float], slow_ema: List[float]) -> Dict:
+        """
+        Analyze trend and momentum for dashboard display
+        
+        Returns:
+            Dict: {'state': 'BULL'/'BEAR', 'momentum': 'INCREASING'/'DECREASING'/'FLAT'}
+        """
+        if len(fast_ema) < 3 or len(slow_ema) < 3:
+            return {"trend": "N/A", "momentum": "FLAT"}
+            
+        curr_fast, prev_fast = fast_ema[-1], fast_ema[-2]
+        curr_slow, prev_slow = slow_ema[-1], slow_ema[-2]
+        
+        if curr_fast is None or curr_slow is None:
+             return {"trend": "N/A", "momentum": "FLAT"}
+        
+        # Trend State
+        trend = "BULL" if curr_fast > curr_slow else "BEAR"
+        
+        # Momemtum (Rate of separation)
+        curr_sep = abs(curr_fast - curr_slow)
+        
+        if prev_fast is not None and prev_slow is not None:
+            prev_sep = abs(prev_fast - prev_slow)
+            
+            # 1% change threshold for momentum
+            if curr_sep > prev_sep * 1.01:
+                momentum = "INCREASING"
+            elif curr_sep < prev_sep * 0.99:
+                momentum = "DECREASING"
+            else:
+                momentum = "FLAT"
+        else:
+            momentum = "FLAT"
+            
+        return {"trend": trend, "momentum": momentum, "separation": curr_sep}
+
 
 def test_strategy():
     """Quick test of EMA strategy with sample data"""
