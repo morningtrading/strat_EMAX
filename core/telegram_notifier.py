@@ -76,7 +76,7 @@ class TelegramNotifier:
         self.chat_id = tg_config.get('chat_id', '')
         self.notify_entry = tg_config.get('notify_on_entry', True)
         self.notify_exit = tg_config.get('notify_on_exit', True)
-        self.notify_error = tg_config.get('notify_on_error', True)
+        self.should_notify_error = tg_config.get('notify_on_error', True)
         self.daily_summary_time = tg_config.get('daily_summary_utc', '21:00')
         
         # API endpoint
@@ -221,7 +221,7 @@ class TelegramNotifier:
             message: Error details
             symbol: Related symbol if any
         """
-        if not self.notify_error:
+        if not self.should_notify_error:
             return
         
         text = f"""

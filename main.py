@@ -142,6 +142,20 @@ class TradingEngine:
         
         logger.info("Trading Engine initialized")
         logger.info(f"Enabled symbols: {self.enabled_symbols}")
+        
+    def _validate_symbols(self):
+        """Validate that enabled symbols exist on the broker"""
+        valid_symbols = []
+        
+        for symbol in self.enabled_symbols:
+            info = self.mt5.get_symbol_info(symbol)
+            if info:
+                valid_symbols.append(symbol)
+                logger.info(f"Symbol verified: {symbol}")
+            else:
+                logger.error(f"Symbol NOT FOUND: {symbol}. Please check Market Watch.")
+            
+        return valid_symbols
     
     def _load_config(self, config_path: Path) -> Dict:
         """Load configuration from JSON file"""

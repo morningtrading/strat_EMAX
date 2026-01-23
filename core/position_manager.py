@@ -109,6 +109,8 @@ class PositionManager:
         self.max_margin = account_config.get('max_margin_per_trade_usd', 10.0)
         self.max_daily_loss_percent = account_config.get('max_daily_loss_percent', 75.0)
         self.leverage = account_config.get('default_leverage', 1000)
+        self.position_size_type = account_config.get('position_size_type', 'margin')
+        self.fixed_volume = account_config.get('fixed_volume', 0.01)
         
         # Stop loss config
         sl_config = self.config.get('stop_loss', {})
@@ -271,14 +273,22 @@ class PositionManager:
         # Margin = (Contract Size * Lot Size * Price) / Leverage
         margin_per_lot = (contract_size * 1.0 * current_price) / leverage
         
-        if margin_per_lot == 0:
-            return min_volume, {"error": "Zero margin calculation"}
-        
-        # Calculate max volume based on margin limit
-        max_volume = self.max_margin / margin_per_lot
-        
-        # Round to volume step
-        volume = max(min_volume, round(max_volume / volume_step) * volume_step)
+        # Check position sizing type
+        if self.position_size_type == "fixed":
+            # Use fixed volume
+            volume = self.fixed_volume
+            # Round to volume step to be safe
+            volume = round(volume / volume_step) * volume_step
+        else:
+            # MARGIN BASED SIZING
+            if margin_per_lot == 0:
+                return min_volume, {"error": "Zero margin calculation"}
+            
+            # Calculate max volume based on margin limit
+            max_volume = self.max_margin / margin_per_lot
+            
+            # Round to volume step
+            volume = max(min_volume, round(max_volume / volume_step) * volume_step)
         
         # Cap at minimum for safety
         symbol_config = self.symbol_settings.get(symbol, {})
@@ -292,10 +302,11 @@ class PositionManager:
             "leverage": leverage,
             "contract_size": contract_size,
             "current_price": current_price,
-            "min_volume": min_volume
+            "min_volume": min_volume,
+            "sizing_type": self.position_size_type
         }
         
-        logger.info(f"[{symbol}] Position size: {volume} lots (margin: ${margin_per_lot * volume:.2f})")
+        logger.info(f"[{symbol}] Position size: {volume} lots ({self.position_size_type})")
         
         return volume, details
     

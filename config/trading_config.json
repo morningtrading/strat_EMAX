@@ -5,55 +5,61 @@
     "account": {
         "demo_only": true,
         "max_margin_per_trade_usd": 10.0,
+        "position_size_type": "fixed",
+        "fixed_volume": 0.01,
         "max_daily_loss_percent": 75.0,
         "default_leverage": 1000
     },
     "symbols": {
         "enabled": [
-            "XAGUSD"
+            "XAUUSD",
+            "SP500",
+            "US2000",
+            "USTEC",
+            "DE40"
         ],
         "available": [
             "XAUUSD",
             "XAGUSD",
-            "NAS100.fs",
-            "US500.fs",
-            "GER40",
-            "FRA40"
+            "SP500",
+            "US2000",
+            "USTEC",
+            "DE40"
         ],
         "settings": {
             "XAUUSD": {
                 "timeframe": "M5",
-                "enabled": false,
+                "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 50
             },
             "XAGUSD": {
                 "timeframe": "M5",
-                "enabled": true,
+                "enabled": false,
                 "min_volume": 0.01,
                 "max_spread_points": 30
             },
-            "NAS100.fs": {
+            "SP500": {
                 "timeframe": "M5",
-                "enabled": false,
-                "min_volume": 0.01,
-                "max_spread_points": 100
-            },
-            "US500.fs": {
-                "timeframe": "M5",
-                "enabled": false,
+                "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 50
             },
-            "GER40": {
+            "US2000": {
                 "timeframe": "M5",
-                "enabled": false,
+                "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 30
+                "max_spread_points": 50
             },
-            "FRA40": {
+            "USTEC": {
                 "timeframe": "M5",
-                "enabled": false,
+                "enabled": true,
+                "min_volume": 0.01,
+                "max_spread_points": 100
+            },
+            "DE40": {
+                "timeframe": "M5",
+                "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 30
             }
