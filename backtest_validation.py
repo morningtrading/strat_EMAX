@@ -5,7 +5,7 @@ VALIDATION BACKTEST - Optimized Settings on Unseen Data
 ================================================================================
 Tests the optimized EMA settings on January 2025 data (outside optimization window)
 to validate the strategy performance on unseen market conditions.
-================================================================================
+=======================================================================
 """
 
 import MetaTrader5 as mt5
