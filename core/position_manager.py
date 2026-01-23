@@ -448,7 +448,7 @@ class PositionManager:
             order_type=order_type,
             volume=volume,
             sl=sl_price,
-            comment=f"EMAX: {reason}"
+            comment="EMAX"
         )
         
         if result['success']:
