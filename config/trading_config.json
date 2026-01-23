@@ -134,7 +134,7 @@
     },
     "telegram": {
         "enabled": true,
-        "bot_token": "8296046299:AAE20BPkuOJPUHzJCJQUs2wdWIcEsa3d4AU",
+        "bot_token": "8260810197:AAG3bdatA4LGf1_0_sVHZGv8dtZMeU_zN3w",
         "chat_id": "5890207399",
         "notify_on_entry": true,
         "notify_on_exit": true,
