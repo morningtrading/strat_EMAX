@@ -387,6 +387,17 @@ class PositionManager:
         timestamp = datetime.now().isoformat()
         
         # Pre-flight checks
+        # 0. Market closed check
+        symbol_info = self.mt5.get_symbol_info(symbol)
+        if symbol_info and not symbol_info.get('trade_allowed', False):
+            logger.warning(f"[{symbol}] Market CLOSED - skipping trade")
+            return TradeResult(
+                success=False, action=f"OPEN_{direction}", symbol=symbol,
+                volume=0, price=0, sl=None, tp=None, ticket=None,
+                error="Market closed (trade disabled)", margin_used=0,
+                timestamp=timestamp
+            )
+        
         # 1. Session filter
         session_ok, session_reason = self.check_session_filter()
         if not session_ok:
