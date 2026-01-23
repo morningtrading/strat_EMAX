@@ -641,7 +641,6 @@ DASHBOARD_HTML = """
             
             // Update timeframe display
             document.getElementById('timeframe').textContent = engine.timeframe || 'M5';
-            document.getElementById('market-timeframe').textContent = engine.timeframe || 'M5';
             
             // Config display
             document.getElementById('config-display').textContent = JSON.stringify({

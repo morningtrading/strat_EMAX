@@ -36,8 +36,9 @@ TIMEFRAMES = {
 FAST_EMA_RANGE = range(5, 21)        # 5 to 20
 SLOW_EMA_RANGE = range(20, 61, 5)    # 20, 25, 30, ... 60
 
-# Backtest period
-LOOKBACK_DAYS = 30
+# Backtest period - March to August 2025
+START_DATE = datetime(2025, 3, 1)
+END_DATE = datetime(2025, 8, 31, 23, 59, 59)
 
 # Simulation settings
 SPREAD_COST = 2  # Points of slippage/spread per trade
@@ -126,14 +127,12 @@ def simulate_ema_crossover(bars: pd.DataFrame, fast_period: int, slow_period: in
     }
 
 
-def get_bars_count(timeframe_str: str, days: int) -> int:
-    """Calculate number of bars needed for given timeframe and days"""
-    minutes_map = {'M1': 1, 'M5': 5, 'M15': 15, 'H1': 60}
-    minutes_per_bar = minutes_map.get(timeframe_str, 5)
-    # Market hours approximation (not 24/7 for most symbols)
-    trading_hours_per_day = 20  # Conservative estimate
-    bars_per_day = (trading_hours_per_day * 60) // minutes_per_bar
-    return bars_per_day * days
+def get_bars_for_range(symbol: str, timeframe, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+    """Fetch historical bars for a specific date range"""
+    rates = mt5.copy_rates_range(symbol, timeframe, start_date, end_date)
+    if rates is None or len(rates) == 0:
+        return None
+    return pd.DataFrame(rates)
 
 
 def run_optimization():
@@ -146,7 +145,7 @@ def run_optimization():
     print(f"Timeframes: {', '.join(TIMEFRAMES.keys())}")
     print(f"Fast EMA: {min(FAST_EMA_RANGE)}-{max(FAST_EMA_RANGE)}")
     print(f"Slow EMA: {min(SLOW_EMA_RANGE)}-{max(SLOW_EMA_RANGE)}")
-    print(f"Lookback: {LOOKBACK_DAYS} days")
+    print(f"Period: {START_DATE.strftime('%Y-%m-%d')} to {END_DATE.strftime('%Y-%m-%d')}")
     print("="*70)
     
     # Initialize MT5
@@ -168,15 +167,12 @@ def run_optimization():
         print(f"{'='*50}")
         
         for tf_name, tf_value in TIMEFRAMES.items():
-            bars_needed = get_bars_count(tf_name, LOOKBACK_DAYS)
-            
-            # Fetch bars
-            rates = mt5.copy_rates_from_pos(symbol, tf_value, 0, bars_needed)
-            if rates is None or len(rates) < 100:
-                print(f"  ⚠️  {tf_name}: Insufficient data ({len(rates) if rates else 0} bars)")
+            # Fetch bars for date range
+            bars_df = get_bars_for_range(symbol, tf_value, START_DATE, END_DATE)
+            if bars_df is None or len(bars_df) < 100:
+                print(f"  ⚠️  {tf_name}: Insufficient data ({len(bars_df) if bars_df is not None else 0} bars)")
                 continue
             
-            bars_df = pd.DataFrame(rates)
             print(f"  📈 {tf_name}: {len(bars_df)} bars loaded")
             
             tf_results = []
@@ -211,8 +207,7 @@ def run_optimization():
                       f"PnL: {best['total_pnl']:.2f}")
     
     # Save all results to CSV
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_filename = f"backtest_results_{timestamp}.csv"
+    csv_filename = f"backtest_results_Mar_Aug_2025.csv"
     
     with open(csv_filename, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=[
