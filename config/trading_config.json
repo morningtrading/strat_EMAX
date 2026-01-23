@@ -32,37 +32,37 @@
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 50
+                "max_spread_points": 9999
             },
             "XAGUSD": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 30
+                "max_spread_points": 9999
             },
             "SP500": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 50
+                "max_spread_points": 9999
             },
             "US2000": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 50
+                "max_spread_points": 9999
             },
             "USTEC": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 100
+                "max_spread_points": 9999
             },
             "DE40": {
                 "timeframe": "M1",
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 30
+                "max_spread_points": 9999
             }
         }
     },
