@@ -166,50 +166,24 @@ class TelegramNotifier:
             return
         
         emoji = "🟢" if direction == "LONG" else "🔴"
-        arrow = "⬆️" if direction == "LONG" else "⬇️"
         
-        # Build base message
-        message = f"""
-{emoji} <b>TRADE OPENED</b> {arrow}
-
-<b>Symbol:</b> {symbol}
-<b>Direction:</b> {direction}
-<b>Volume:</b> {volume} lots
-<b>Entry:</b> {price}
-<b>Stop Loss:</b> {sl if sl else 'None'}
-"""
+        # Compact format: 1-2 lines
+        message = f"{emoji} <b>{symbol} {direction}</b> {volume} lots @ {price}"
+        if sl:
+            message += f" SL:{sl}"
         
-        # Add EMA values if provided
+        # Add EMA and margin on second line if provided
+        details = []
         if fast_ema is not None and slow_ema is not None:
-            message += f"""
-<b>📊 EMA Crossover:</b>
-  • Fast EMA: {fast_ema:.4f}
-  • Slow EMA: {slow_ema:.4f}
-  • Spread: {abs(fast_ema - slow_ema):.4f}
-"""
-        
-        # Add margin info if provided
+            details.append(f"EMA:{fast_ema:.2f}/{slow_ema:.2f}")
         if margin is not None:
-            message += f"""
-<b>💰 Position:</b>
-  • Margin Used: ${margin:.2f}
-  • Risk: ${abs(price - sl) * volume if sl else 0:.2f}
-"""
+            details.append(f"M:${margin:.0f}")
+        if equity is not None:
+            details.append(f"Eq:${equity:.0f}")
         
-        # Add account info if provided
-        if balance is not None and equity is not None:
-            message += f"""
-<b>💼 Account:</b>
-  • Balance: ${balance:.2f}
-  • Equity: ${equity:.2f}
-  • Free Margin: ${equity - (margin if margin else 0):.2f}
-"""
+        if details:
+            message += f"\n{' | '.join(details)}"
         
-        message += f"""
-<b>Reason:</b> {reason}
-
-<i>🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
-"""
         self.send_message(message.strip())
     
     def notify_trade_exit(self, symbol: str, direction: str, volume: float,
@@ -238,44 +212,24 @@ class TelegramNotifier:
             return
         
         pnl_emoji = "💰" if pnl >= 0 else "💸"
-        result = "WIN" if pnl >= 0 else "LOSS"
-        pnl_percent = ((exit_price - entry_price) / entry_price * 100) if direction == "LONG" else ((entry_price - exit_price) / entry_price * 100)
         
-        # Build base message
-        message = f"""
-{pnl_emoji} <b>TRADE CLOSED - {result}</b>
-
-<b>Symbol:</b> {symbol}
-<b>Direction:</b> {direction}
-<b>Volume:</b> {volume} lots
-<b>Entry:</b> {entry_price}
-<b>Exit:</b> {exit_price}
-<b>P&L:</b> <code>${pnl:+.2f}</code> ({pnl_percent:+.2f}%)
-"""
-        
-        # Add pips if provided
+        # Compact format: 1-2 lines
+        message = f"{pnl_emoji} <b>{symbol} {direction}</b> <code>${pnl:+.2f}</code>"
         if pips is not None:
-            message += f"<b>Pips:</b> {pips:+.1f}\n"
+            message += f" ({pips:+.1f}p)"
         
-        # Add hold time if provided
+        # Add details on second line if provided
+        details = []
         if hold_time:
-            message += f"<b>Duration:</b> {hold_time}\n"
+            details.append(f"T:{hold_time}")
+        if equity is not None:
+            details.append(f"Eq:${equity:.0f}")
+        if total_pnl is not None:
+            details.append(f"Tot:${total_pnl:+.0f}")
         
-        # Add account summary if provided
-        if balance is not None and equity is not None:
-            message += f"""
-<b>💼 Account After Close:</b>
-  • Balance: ${balance:.2f}
-  • Equity: ${equity:.2f}
-"""
-            if total_pnl is not None:
-                message += f"  • Total P&L: <code>${total_pnl:+.2f}</code>\n"
+        if details:
+            message += f"\n{' | '.join(details)}"
         
-        message += f"""
-<b>Reason:</b> {reason}
-
-<i>🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
-"""
         self.send_message(message.strip())
     
     def notify_error(self, error_type: str, message: str, symbol: Optional[str] = None):
