@@ -290,10 +290,14 @@ class PositionManager:
             # Round to volume step
             volume = max(min_volume, round(max_volume / volume_step) * volume_step)
         
-        # Cap at minimum for safety
-        symbol_config = self.symbol_settings.get(symbol, {})
-        min_vol = symbol_config.get('min_volume', min_volume)
-        volume = max(volume, min_vol)
+        # CRITICAL: Ensure volume is at least MT5's minimum and properly rounded
+        volume = max(volume, min_volume)
+        volume = round(volume / volume_step) * volume_step
+        
+        # Safety floor check
+        if volume < min_volume:
+            volume = min_volume
+            logger.warning(f"[{symbol}] Volume adjusted to min_volume: {min_volume}")
         
         details = {
             "calculated_volume": volume,
@@ -303,10 +307,11 @@ class PositionManager:
             "contract_size": contract_size,
             "current_price": current_price,
             "min_volume": min_volume,
+            "volume_step": volume_step,
             "sizing_type": self.position_size_type
         }
         
-        logger.info(f"[{symbol}] Position size: {volume} lots ({self.position_size_type})")
+        logger.info(f"[{symbol}] Position size: {volume} lots (min={min_volume}, step={volume_step})")
         
         return volume, details
     
