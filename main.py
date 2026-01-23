@@ -138,8 +138,9 @@ class TradingEngine:
         # Track last bar times to detect new bars
         self.last_bar_time: Dict[str, str] = {}
         
-        # Start time for uptime tracking
-        self.start_time = None
+        # Start time for uptime stats and history filtering
+        self.start_time = datetime.now()
+        self.stats_reset_time = self.start_time
         
         # Connect to MT5 first to validate symbols
         if self.mt5.connect():
@@ -260,8 +261,10 @@ class TradingEngine:
             # Current positions
             self.dashboard_data['positions'] = self.mt5.get_positions()
             
-            # Recent deals/orders (last 20)
-            self.dashboard_data['orders_history'] = self.mt5.get_history_deals(days=7)[-20:]
+            # Recent deals/orders (Session only)
+            recent_deals = self.mt5.get_history_deals(days=1)
+            cutoff = self.stats_reset_time.isoformat()
+            self.dashboard_data['orders_history'] = [d for d in recent_deals if d['time'] >= cutoff][-20:]
             
             # Strategy and manager status
             self.dashboard_data['strategy_status'] = self.strategy.get_strategy_status()
