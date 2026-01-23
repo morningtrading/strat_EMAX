@@ -464,16 +464,18 @@ DASHBOARD_HTML = """
             <table class="market-table">
                 <thead>
                     <tr>
-                        <th style="width: 15%;">Symbol</th>
+                        <th>Symbol</th>
                         <th>Market</th>
+                        <th>TF</th>
+                        <th>EMA</th>
                         <th>Price</th>
                         <th>Min Vol</th>
-                        <th>Trend (<span id="market-timeframe">M5</span>)</th>
+                        <th>Trend</th>
                         <th>Momentum</th>
                     </tr>
                 </thead>
                 <tbody id="market-status-body">
-                    <tr><td colspan="6" style="text-align: center; color: #666;">Loading market data...</td></tr>
+                    <tr><td colspan="8" style="text-align: center; color: #666;">Loading market data...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -712,6 +714,8 @@ DASHBOARD_HTML = """
                     <tr>
                         <td style="font-weight: bold; color: #00d4ff;">${sym}</td>
                         <td>${marketStatus}</td>
+                        <td style="color: #00ff88; font-size: 0.85em;">${d.timeframe || 'M5'}</td>
+                        <td style="color: #ffa500;">${d.fast_ema || 9}/${d.slow_ema || 41}</td>
                         <td>${d.price ? d.price.toFixed(2) : '-'}</td>
                         <td style="color: #888;">${d.min_volume || 0.01}</td>
                         <td><span class="trend-badge ${trendClass}">${trendIcon}</span></td>

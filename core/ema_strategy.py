@@ -120,6 +120,9 @@ class EMAStrategy:
         self.exit_on_price_deviation = exit_config.get('exit_on_price_below_slow_ema', True)
         self.price_deviation_percent = exit_config.get('price_below_slow_ema_percent', 0.1)
         
+        # Per-symbol settings from config
+        self.symbol_settings = self.config.get('symbols', {}).get('settings', {})
+        
         # State tracking per symbol
         self.last_signal: Dict[str, Signal] = {}
         self.last_signal_bar: Dict[str, str] = {}  # Track which bar generated last signal
@@ -128,7 +131,20 @@ class EMAStrategy:
         # EMA cache
         self.ema_cache: Dict[str, Dict] = {}
         
-        logger.info(f"EMAStrategy initialized: Fast={self.fast_period}, Slow={self.slow_period}, Direction={self.direction}")
+        logger.info(f"EMAStrategy initialized: Default Fast={self.fast_period}, Slow={self.slow_period}, Direction={self.direction}")
+    
+    def get_symbol_ema_settings(self, symbol: str) -> tuple:
+        """
+        Get EMA settings for a specific symbol.
+        Falls back to global settings if not defined per-symbol.
+        
+        Returns:
+            Tuple of (fast_period, slow_period)
+        """
+        sym_config = self.symbol_settings.get(symbol, {})
+        fast = sym_config.get('fast_ema', self.fast_period)
+        slow = sym_config.get('slow_ema', self.slow_period)
+        return fast, slow
     
     def _load_config(self, config_path: Path) -> Dict:
         """Load configuration from JSON file"""
@@ -179,11 +195,14 @@ class EMAStrategy:
         Returns:
             Signal object with action and metadata
         """
-        if not bars or len(bars) < self.slow_period + 2:
+        # Get per-symbol EMA settings
+        sym_fast_period, sym_slow_period = self.get_symbol_ema_settings(symbol)
+        
+        if not bars or len(bars) < sym_slow_period + 2:
             return Signal(
                 action=SignalType.HOLD,
                 symbol=symbol,
-                reason=f"Insufficient data ({len(bars)} bars, need {self.slow_period + 2})",
+                reason=f"Insufficient data ({len(bars)} bars, need {sym_slow_period + 2})",
                 strength=0.0,
                 fast_ema=0.0,
                 slow_ema=0.0,
@@ -195,9 +214,9 @@ class EMAStrategy:
         # Extract close prices
         closes = [bar['close'] for bar in bars]
         
-        # Calculate EMAs
-        fast_ema = self.calculate_ema(closes, self.fast_period)
-        slow_ema = self.calculate_ema(closes, self.slow_period)
+        # Calculate EMAs using per-symbol periods
+        fast_ema = self.calculate_ema(closes, sym_fast_period)
+        slow_ema = self.calculate_ema(closes, sym_slow_period)
         
         # Get current and previous values
         current_fast = fast_ema[-1]

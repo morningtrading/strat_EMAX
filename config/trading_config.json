@@ -29,40 +29,59 @@
         ],
         "settings": {
             "XAUUSD": {
-                "timeframe": "M1",
+                "timeframe": "H1",
+                "fast_ema": 5,
+                "slow_ema": 55,
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 9999
+                "max_spread_points": 9999,
+                "_backtest_pnl": 442.16
             },
             "XAGUSD": {
-                "timeframe": "M1",
-                "enabled": true,
+                "timeframe": "H1",
+                "fast_ema": 18,
+                "slow_ema": 60,
+                "enabled": false,
                 "min_volume": 0.01,
-                "max_spread_points": 9999
+                "max_spread_points": 9999,
+                "_backtest_pnl": -19.68,
+                "_note": "Disabled - unprofitable in backtest"
             },
             "US2000": {
-                "timeframe": "M1",
+                "timeframe": "H1",
+                "fast_ema": 15,
+                "slow_ema": 40,
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 9999
+                "max_spread_points": 9999,
+                "_backtest_pnl": 213.97
             },
             "SP500ft": {
-                "timeframe": "M1",
+                "timeframe": "M15",
+                "fast_ema": 19,
+                "slow_ema": 55,
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 9999
+                "max_spread_points": 9999,
+                "_backtest_pnl": 193.15
             },
             "NAS100ft": {
-                "timeframe": "M1",
+                "timeframe": "M5",
+                "fast_ema": 12,
+                "slow_ema": 60,
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 9999
+                "max_spread_points": 9999,
+                "_backtest_pnl": 1383.32
             },
             "GER40ft": {
-                "timeframe": "M1",
+                "timeframe": "H1",
+                "fast_ema": 10,
+                "slow_ema": 30,
                 "enabled": true,
                 "min_volume": 0.01,
-                "max_spread_points": 9999
+                "max_spread_points": 9999,
+                "_backtest_pnl": 1389.30
             }
         }
     },

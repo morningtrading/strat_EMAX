@@ -345,6 +345,13 @@ class TradingEngine:
             symbol_info = self.mt5.get_symbol_info(symbol)
             trade_allowed = symbol_info.get('trade_allowed', False) if symbol_info else False
             
+            # Get per-symbol EMA settings
+            sym_fast, sym_slow = self.strategy.get_symbol_ema_settings(symbol)
+            
+            # Get symbol-specific timeframe from config
+            sym_config = self.config.get('symbols', {}).get('settings', {}).get(symbol, {})
+            sym_timeframe = sym_config.get('timeframe', 'M5')
+            
             with self.dashboard_lock:
                 self.market_overview[symbol] = {
                     'price': bars[-1]['close'],
@@ -355,6 +362,9 @@ class TradingEngine:
                     'min_volume': symbol_info.get('volume_min', 0.01) if symbol_info else 0.01,
                     'volume_step': symbol_info.get('volume_step', 0.01) if symbol_info else 0.01,
                     'spread': symbol_info.get('spread', 0) if symbol_info else 0,
+                    'fast_ema': sym_fast,
+                    'slow_ema': sym_slow,
+                    'timeframe': sym_timeframe,
                     'polling': 'OK',
                     'updated': datetime.now().isoformat()
                 }
