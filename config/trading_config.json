@@ -13,6 +13,7 @@
     "symbols": {
         "enabled": [
             "XAUUSD",
+            "XAGUSD",
             "SP500",
             "US2000",
             "USTEC",
@@ -35,7 +36,7 @@
             },
             "XAGUSD": {
                 "timeframe": "M5",
-                "enabled": false,
+                "enabled": true,
                 "min_volume": 0.01,
                 "max_spread_points": 30
             },
