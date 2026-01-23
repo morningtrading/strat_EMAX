@@ -502,7 +502,7 @@ def main():
     dashboard = WebDashboard(trading_engine=engine, port=dashboard_port)
     dashboard.start(threaded=True)
     
-    print(f"\n📊 Dashboard running at: http://localhost:{dashboard_port}")
+    print(f"\n[Dashboard] Running at: http://localhost:{dashboard_port}")
     print("="*60)
     
     # Handle shutdown signals
