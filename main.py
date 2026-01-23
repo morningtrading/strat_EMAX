@@ -328,8 +328,8 @@ class TradingEngine:
         # Update Market Status (Sequential / Thread-Safe)
         ema_vals = self.strategy.get_ema_values(symbol)
         if ema_vals:
-            fast = ema_vals.get('fast', [])
-            slow = ema_vals.get('slow', [])
+            fast = ema_vals.get('fast_ema', [])
+            slow = ema_vals.get('slow_ema', [])
             analysis = self.strategy.analyze_trend_momentum(fast, slow)
             
             with self.dashboard_lock:
@@ -337,6 +337,7 @@ class TradingEngine:
                     'price': bars[-1]['close'],
                     'trend': analysis['trend'],
                     'momentum': analysis['momentum'],
+                    'diff': analysis.get('diff', 0.0),
                     'polling': 'OK',
                     'updated': datetime.now().isoformat()
                 }
