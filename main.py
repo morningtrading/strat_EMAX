@@ -274,13 +274,19 @@ class TradingEngine:
             self.dashboard_data['daily_stats'] = self.position_manager.get_daily_stats()
             
             # Engine status
+            # Get timeframe from first enabled symbol's config
+            first_symbol = self.enabled_symbols[0] if self.enabled_symbols else 'XAUUSD'
+            symbol_settings = self.config.get('symbols', {}).get('settings', {}).get(first_symbol, {})
+            current_timeframe = symbol_settings.get('timeframe', 'M5')
+            
             self.dashboard_data['engine_status'] = {
                 'trading_enabled': self.trading_enabled,
                 'direction': self.direction,
                 'enabled_symbols': self.enabled_symbols,
                 'running': self.running,
                 'paused': self.paused,
-                'uptime': (datetime.now() - self.start_time).seconds if self.start_time else 0
+                'uptime': (datetime.now() - self.start_time).seconds if self.start_time else 0,
+                'timeframe': current_timeframe
             }
             
             # Market Overview

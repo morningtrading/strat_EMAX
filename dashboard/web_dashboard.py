@@ -466,7 +466,7 @@ DASHBOARD_HTML = """
                     <tr>
                         <th style="width: 20%;">Symbol</th>
                         <th>Status</th>
-                        <th>Trend (M5)</th>
+                        <th>Trend (<span id="market-timeframe">M5</span>)</th>
                         <th>Momentum</th>
                     </tr>
                 </thead>
@@ -608,6 +608,10 @@ DASHBOARD_HTML = """
             document.getElementById('btn-enable').disabled = engine.trading_enabled;
             document.getElementById('btn-disable').disabled = !engine.trading_enabled;
             document.getElementById('direction-select').value = engine.direction || 'both';
+            
+            // Update timeframe display
+            document.getElementById('timeframe').textContent = engine.timeframe || 'M5';
+            document.getElementById('market-timeframe').textContent = engine.timeframe || 'M5';
             
             // Config display
             document.getElementById('config-display').textContent = JSON.stringify({
