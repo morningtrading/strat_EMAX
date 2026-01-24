@@ -145,23 +145,41 @@ echo -e "${GREEN}✓ Repository cloned to $INSTALL_DIR${NC}"
 test_step "Repository clone" "[ -d '$INSTALL_DIR' ] && [ -f '$INSTALL_DIR/main.py' ] && [ -f '$INSTALL_DIR/requirements.txt' ]"
 
 # Create Python virtual environment
-print_step 6 $TOTAL_STEPS "Setting up Python virtual environment..."
+print_step 6 $TOTAL_STEPS "Setting up Python environment (Wine Python for MT5)..."
 cd "$INSTALL_DIR"
-sudo -u $ACTUAL_USER python3 -m venv venv || { echo -e "${RED}❌ Virtual environment creation failed${NC}"; exit 1; }
-sudo -u $ACTUAL_USER venv/bin/pip install --upgrade pip -q || { echo -e "${RED}❌ pip upgrade failed${NC}"; exit 1; }
-sudo -u $ACTUAL_USER venv/bin/pip install -r requirements.txt -q || { echo -e "${RED}❌ Requirements installation failed${NC}"; exit 1; }
-VENV_PYTHON=$(sudo -u $ACTUAL_USER venv/bin/python --version)
-echo -e "${GREEN}✓ Virtual environment created with $VENV_PYTHON${NC}"
-test_step "Python virtual environment" "[ -f '$INSTALL_DIR/venv/bin/python' ] && [ -f '$INSTALL_DIR/venv/bin/activate' ]"
+
+# Install Python packages that work on native Linux first (non-MT5 dependencies)
+echo -e "${CYAN}Installing Wine Python and pip...${NC}"
+sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" wine python -m pip install --upgrade pip -q 2>/dev/null || {
+    echo -e "${YELLOW}⚠️  Installing Python in Wine...${NC}"
+    sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" winetricks -q python312 || {
+        echo -e "${YELLOW}⚠️  Downloading Python installer for Wine...${NC}"
+        sudo -u $ACTUAL_USER wget -q -O /tmp/python-installer.exe https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe
+        sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" wine /tmp/python-installer.exe /quiet InstallAllUsers=1 PrependPath=1 Include_test=0
+        rm -f /tmp/python-installer.exe
+    }
+}
+
+echo -e "${CYAN}Installing Python packages via Wine...${NC}"
+# Install each package individually to provide better error messages
+sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" wine python -m pip install --upgrade pip setuptools wheel -q
+sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" wine python -m pip install MetaTrader5 -q || { echo -e "${RED}❌ MetaTrader5 package installation failed${NC}"; exit 1; }
+sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" wine python -m pip install requests -q || { echo -e "${RED}❌ requests installation failed${NC}"; exit 1; }
+sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" wine python -m pip install python-telegram-bot -q || { echo -e "${RED}❌ python-telegram-bot installation failed${NC}"; exit 1; }
+sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" wine python -m pip install pandas numpy python-dotenv -q
+
+WINE_PYTHON_VERSION=$(sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" wine python --version 2>/dev/null || echo "Wine Python installed")
+echo -e "${GREEN}✓ Wine Python environment configured: $WINE_PYTHON_VERSION${NC}"
+test_step "Wine Python environment" "sudo -u $ACTUAL_USER WINEPREFIX='$USER_HOME/.wine' wine python -c 'import sys; sys.exit(0)' 2>/dev/null"
 
 # Verify Python packages
 echo -e "${CYAN}Verifying critical Python packages...${NC}"
 PACKAGES_OK=true
-for pkg in MetaTrader5 requests python-telegram-bot; do
-    if sudo -u $ACTUAL_USER venv/bin/pip show $pkg >/dev/null 2>&1; then
-        echo -e "${GREEN}  ✓ $pkg installed${NC}"
+for pkg in MetaTrader5 requests telegram; do
+    if sudo -u $ACTUAL_USER WINEPREFIX="$USER_HOME/.wine" wine python -c "import $pkg" 2>/dev/null; then
+        echo -e "${GREEN}  ✓ $pkg installed and importable${NC}"
     else
-        echo -e "${RED}  ✗ $pkg missing${NC}"
+        echo -e "${RED}  ✗ $pkg missing or not importable${NC}"
         PACKAGES_OK=false
     fi
 done
@@ -241,7 +259,8 @@ Type=simple
 User=$ACTUAL_USER
 WorkingDirectory=$INSTALL_DIR
 Environment="DISPLAY=:0"
-ExecStart=/usr/bin/xvfb-run -a $INSTALL_DIR/venv/bin/python $INSTALL_DIR/main.py
+Environment="WINEPREFIX=$USER_HOME/.wine"
+ExecStart=/usr/bin/xvfb-run -a /usr/bin/wine python $INSTALL_DIR/main.py
 Restart=always
 RestartSec=10
 
@@ -260,8 +279,7 @@ echo -e "${CYAN}Creating helper scripts...${NC}"
 cat > "$INSTALL_DIR/start.sh" << 'EOF'
 #!/bin/bash
 cd "$(dirname "$0")"
-source venv/bin/activate
-DISPLAY=:0 xvfb-run -a python main.py
+DISPLAY=:0 xvfb-run -a wine python main.py
 EOF
 
 # Stop script
