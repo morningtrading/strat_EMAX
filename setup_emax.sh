@@ -219,7 +219,24 @@ cat > "$INSTALL_DIR/start.sh" << 'EOF'
 #!/bin/bash
 cd "$(dirname "$0")"
 echo "Starting EMAX Trading Bot..."
-xvfb-run wine python main.py
+export DISPLAY=:99
+export WINEARCH=win64
+export WINEPREFIX=$HOME/.wine
+
+# Start Xvfb in background if not running
+if ! pgrep -x "Xvfb" > /dev/null; then
+    Xvfb :99 -screen 0 1024x768x24 &
+    XVFB_PID=$!
+    sleep 2
+fi
+
+# Run bot
+wine python main.py
+
+# Kill Xvfb if we started it
+if [ ! -z "$XVFB_PID" ]; then
+    kill $XVFB_PID 2>/dev/null
+fi
 EOF
 
 cat > "$INSTALL_DIR/stop.sh" << 'EOF'
