@@ -86,9 +86,17 @@ if ! command -v wine &> /dev/null; then
     sudo wget -q -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
     sudo wget -q -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/${VERSION_CODENAME}/winehq-${VERSION_CODENAME}.sources
     sudo apt-get update -qq
-    sudo apt-get install -y --install-recommends winehq-stable xvfb git curl wget
+    sudo apt-get install -y --install-recommends winehq-stable xvfb xserver-xephyr git curl wget
 else
     echo -e "${GREEN}✓ Wine already installed${NC}"
+    sudo apt-get install -y xvfb xserver-xephyr 2>/dev/null || true
+fi
+
+# Initialize Wine prefix if needed
+if [ ! -d "$HOME/.wine" ]; then
+    echo -e "${CYAN}Initializing Wine...${NC}"
+    WINEDEBUG=-all wineboot -u
+    sleep 3
 fi
 
 WINE_VER=$(wine --version)
@@ -118,8 +126,14 @@ else
     wget -q --show-progress -O /tmp/python.exe "$PYTHON_URL"
     
     echo -e "${CYAN}Installing Python silently (~30 seconds)...${NC}"
-    xvfb-run wine /tmp/python.exe /quiet InstallAllUsers=0 PrependPath=1 Include_test=0
-    sleep 15
+    # Try xvfb-run first, fallback to direct wine if xvfb fails
+    if ! xvfb-run -a wine /tmp/python.exe /quiet InstallAllUsers=0 PrependPath=1 Include_test=0 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  xvfb-run failed, trying direct wine...${NC}"
+        DISPLAY=:0 wine /tmp/python.exe /quiet InstallAllUsers=0 PrependPath=1 Include_test=0 &
+        sleep 30
+    else
+        sleep 15
+    fi
     rm -f /tmp/python.exe
 fi
 
