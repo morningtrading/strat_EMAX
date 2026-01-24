@@ -167,22 +167,16 @@ class TelegramNotifier:
         
         emoji = "🟢" if direction == "LONG" else "🔴"
         
-        # Compact format: 1-2 lines
+        # Single line with all details
         message = f"{emoji} <b>{symbol} {direction}</b> {volume} lots @ {price}"
         if sl:
-            message += f" SL:{sl}"
-        
-        # Add EMA and margin on second line if provided
-        details = []
-        if fast_ema is not None and slow_ema is not None:
-            details.append(f"EMA:{fast_ema:.2f}/{slow_ema:.2f}")
+            message += f" | Stop Loss: {sl}"
         if margin is not None:
-            details.append(f"M:${margin:.0f}")
+            message += f" | Margin: ${margin:.2f}"
+        if balance is not None:
+            message += f" | Balance: ${balance:.0f}"
         if equity is not None:
-            details.append(f"Eq:${equity:.0f}")
-        
-        if details:
-            message += f"\n{' | '.join(details)}"
+            message += f" | Equity: ${equity:.0f}"
         
         self.send_message(message.strip())
     
@@ -213,22 +207,18 @@ class TelegramNotifier:
         
         pnl_emoji = "💰" if pnl >= 0 else "💸"
         
-        # Compact format: 1-2 lines
-        message = f"{pnl_emoji} <b>{symbol} {direction}</b> <code>${pnl:+.2f}</code>"
+        # Single line with all details
+        message = f"{pnl_emoji} <b>{symbol} {direction}</b> Closed: {entry_price} → {exit_price} | P&L: <code>${pnl:+.2f}</code>"
         if pips is not None:
-            message += f" ({pips:+.1f}p)"
-        
-        # Add details on second line if provided
-        details = []
+            message += f" ({pips:+.1f} pips)"
         if hold_time:
-            details.append(f"T:{hold_time}")
+            message += f" | Time: {hold_time}"
+        if balance is not None:
+            message += f" | Balance: ${balance:.0f}"
         if equity is not None:
-            details.append(f"Eq:${equity:.0f}")
+            message += f" | Equity: ${equity:.0f}"
         if total_pnl is not None:
-            details.append(f"Tot:${total_pnl:+.0f}")
-        
-        if details:
-            message += f"\n{' | '.join(details)}"
+            message += f" | Session Total: <code>${total_pnl:+.0f}</code>"
         
         self.send_message(message.strip())
     
@@ -244,16 +234,12 @@ class TelegramNotifier:
         if not self.should_notify_error:
             return
         
-        text = f"""
-⚠️ <b>EMAX ERROR</b>
-
-<b>Type:</b> {error_type}
-{f'<b>Symbol:</b> {symbol}' if symbol else ''}
-<b>Details:</b> {message}
-
-<i>🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
-"""
-        self.send_message(text.strip())
+        # Single line: Type | Symbol | Details
+        parts = [f"⚠️ <b>ERROR</b> {error_type}"]
+        if symbol:
+            parts.append(f"Symbol: {symbol}")
+        parts.append(f"Details: {message}")
+        self.send_message(" | ".join(parts))
     
     def send_daily_summary(self, stats: Dict):
         """
@@ -267,20 +253,16 @@ class TelegramNotifier:
         starting = stats.get('starting_balance', 0)
         
         pnl_emoji = "📈" if pnl >= 0 else "📉"
-        
-        message = f"""
-{pnl_emoji} <b>DAILY SUMMARY</b>
-
-<b>Date:</b> {stats.get('date', 'N/A')}
-<b>Starting Balance:</b> ${starting:.2f}
-<b>Total P&L:</b> <code>${pnl:+.2f}</code>
-<b>Total Trades:</b> {trades}
-
-<b>Return:</b> {(pnl/starting*100) if starting else 0:.2f}%
-
-<i>🤖 EMAX Trading Engine</i>
-"""
-        self.send_message(message.strip())
+        # Single line: Date | Start | P&L | Trades | Return
+        message = (
+            f"{pnl_emoji} <b>DAILY SUMMARY</b> "
+            f"Date: {stats.get('date', 'N/A')} | "
+            f"Start: ${starting:.0f} | "
+            f"P&L: ${pnl:+.0f} | "
+            f"Trades: {trades} | "
+            f"Return: {((pnl/starting*100) if starting else 0):.2f}%"
+        )
+        self.send_message(message)
     
     def send_status(self, connected: bool, account_info: Dict):
         """
@@ -291,27 +273,18 @@ class TelegramNotifier:
             account_info: Account details
         """
         if connected:
-            message = f"""
-✅ <b>EMAX CONNECTED</b>
-
-<b>Account:</b> {account_info.get('login', 'N/A')}
-<b>Server:</b> {account_info.get('server', 'N/A')}
-<b>Balance:</b> ${account_info.get('balance', 0):.2f}
-<b>Equity:</b> ${account_info.get('equity', 0):.2f}
-<b>Mode:</b> {'DEMO' if account_info.get('is_demo') else '⚠️ REAL'}
-
-<i>🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
-"""
+            mode = 'DEMO' if account_info.get('is_demo') else '⚠️ REAL'
+            message = (
+                f"✅ <b>CONNECTED</b> "
+                f"Account: {account_info.get('login', 'N/A')} | "
+                f"Server: {account_info.get('server', 'N/A')} | "
+                f"Balance: ${account_info.get('balance', 0):.0f} | "
+                f"Equity: ${account_info.get('equity', 0):.0f} | "
+                f"Mode: {mode}"
+            )
         else:
-            message = f"""
-❌ <b>EMAX DISCONNECTED</b>
-
-Connection to MT5 lost.
-Attempting to reconnect...
-
-<i>🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
-"""
-        self.send_message(message.strip())
+            message = "❌ <b>DISCONNECTED</b> MT5 connection lost — attempting reconnect"
+        self.send_message(message)
     
     def send_panic_alert(self, closed_count: int, total_pnl: float):
         """
@@ -321,17 +294,11 @@ Attempting to reconnect...
             closed_count: Number of positions closed
             total_pnl: Total P&L from closed positions
         """
-        message = f"""
-🚨 <b>PANIC BUTTON ACTIVATED</b> 🚨
-
-<b>Positions Closed:</b> {closed_count}
-<b>Total P&L:</b> <code>${total_pnl:+.2f}</code>
-
-All positions have been closed immediately.
-
-<i>🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
-"""
-        self.send_message(message.strip())
+        message = (
+            f"🚨 <b>PANIC</b> Positions Closed: {closed_count} | "
+            f"Total P&L: ${total_pnl:+.0f} | All positions closed"
+        )
+        self.send_message(message)
     
     def test_connection(self) -> bool:
         """
