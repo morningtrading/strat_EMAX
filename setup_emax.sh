@@ -154,10 +154,10 @@ wine python -m pip install --upgrade pip setuptools wheel -q
 echo -e "${CYAN}Installing packages...${NC}"
 wine python -m pip install MetaTrader5 -q || { echo -e "${RED}❌ MetaTrader5 failed${NC}"; exit 1; }
 wine python -m pip install requests python-telegram-bot -q || { echo -e "${RED}❌ Dependencies failed${NC}"; exit 1; }
-wine python -m pip install pandas numpy python-dotenv -q
+wine python -m pip install pandas numpy python-dotenv flask -q
 
 echo -e "${CYAN}Verifying imports...${NC}"
-for pkg in MetaTrader5 requests telegram; do
+for pkg in MetaTrader5 requests telegram flask; do
     if wine python -c "import $pkg" 2>/dev/null; then
         echo -e "${GREEN}  ✓ $pkg${NC}"
     else
@@ -165,7 +165,7 @@ for pkg in MetaTrader5 requests telegram; do
         exit 1
     fi
 done
-test_step "Python packages" "wine python -c 'import MetaTrader5, requests, telegram' 2>/dev/null"
+test_step "Python packages" "wine python -c 'import MetaTrader5, requests, telegram, flask' 2>/dev/null"
 
 # Step 6: Install MetaTrader 5
 print_step 6 $TOTAL_STEPS "Installing MetaTrader 5..."
@@ -177,17 +177,50 @@ else
     echo -e "${CYAN}Downloading MT5...${NC}"
     wget -q --show-progress -O /tmp/mt5.exe "$MT5_URL"
     
-    echo -e "${CYAN}Installing MT5 silently (~20 seconds)...${NC}"
-    xvfb-run wine /tmp/mt5.exe /auto >/dev/null 2>&1 || true
-    sleep 10
-    rm -f /tmp/mt5.exe
+    echo -e "${CYAN}Installing MT5 (this may take 2-3 minutes)...${NC}"
+    
+    # Kill any existing Xvfb on :1 to avoid conflicts
+    pkill -f "Xvfb :1" 2>/dev/null || true
+    sleep 1
+    
+    # Start Xvfb on :1 explicitly
+    export DISPLAY=:1
+    export WINEPREFIX=$HOME/.wine
+    export WINEARCH=win64
+    
+    Xvfb :1 -screen 0 1024x768x24 > /dev/null 2>&1 &
+    XVFB_PID=$!
+    sleep 3
+    
+    # Run MT5 installer with timeout
+    wine /tmp/mt5.exe /auto > /tmp/mt5_install.log 2>&1 &
+    INSTALLER_PID=$!
+    
+    # Wait up to 3 minutes for installation
+    timeout 180 tail --pid=$INSTALLER_PID -f /dev/null 2>/dev/null || true
+    sleep 5
+    
+    # Kill installer and Xvfb
+    kill $INSTALLER_PID 2>/dev/null || true
+    kill $XVFB_PID 2>/dev/null || true
+    sleep 1
+    
+    # Cleanup
+    rm -f /tmp/mt5.exe /tmp/mt5_install.log
+    
+    echo -e "${CYAN}Verifying MT5 installation...${NC}"
 fi
 
 if [ -f "$MT5_DIR/terminal64.exe" ]; then
-    echo -e "${GREEN}✓ MT5 installed${NC}"
+    echo -e "${GREEN}✓ MT5 installed successfully${NC}"
     test_step "MT5" "[ -f '$MT5_DIR/terminal64.exe' ]"
 else
-    echo -e "${YELLOW}⚠️  MT5 not detected - may need manual install${NC}"
+    echo -e "${YELLOW}⚠️  MT5 not detected - installation may have failed${NC}"
+    echo -e "${YELLOW}   You can retry manual installation later:${NC}"
+    echo -e "${YELLOW}   export DISPLAY=:1 WINEPREFIX=\$HOME/.wine WINEARCH=win64${NC}"
+    echo -e "${YELLOW}   Xvfb :1 -screen 0 1024x768x24 > /dev/null 2>&1 &${NC}"
+    echo -e "${YELLOW}   wine /tmp/mt5setup.exe /auto${NC}"
+    echo -e "${YELLOW}   pkill Xvfb${NC}"
     test_step "MT5" "false" || true
 fi
 
@@ -271,9 +304,12 @@ After=network.target
 Type=simple
 User=$USER
 WorkingDirectory=$INSTALL_DIR
-Environment="DISPLAY=:0"
+Environment="DISPLAY=:99"
 Environment="HOME=$HOME"
-ExecStart=/usr/bin/xvfb-run -a /usr/bin/wine python $INSTALL_DIR/main.py
+Environment="WINEARCH=win64"
+Environment="WINEPREFIX=$HOME/.wine"
+ExecStartPre=/usr/bin/pkill -f "Xvfb :99" || true
+ExecStart=$INSTALL_DIR/start.sh
 Restart=always
 RestartSec=10
 StandardOutput=append:$INSTALL_DIR/logs/systemd.log
