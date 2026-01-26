@@ -118,7 +118,7 @@
         "priority": "first_triggered"
     },
     "session_filter": {
-        "enabled": true,
+        "enabled": false,
         "london_open_utc": "08:00",
         "london_close_utc": "16:30",
         "ny_open_utc": "13:30",
