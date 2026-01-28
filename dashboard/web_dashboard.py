@@ -30,6 +30,8 @@ ENDPOINTS:
     GET  /api/history    - Order history
     POST /api/trade/enable   - Enable trading
     POST /api/trade/disable  - Disable trading
+    POST /api/trade/freeze   - Freeze trading (stop new trades, keep TP/SL)
+    POST /api/trade/unfreeze - Unfreeze trading (resume new trades)
     POST /api/direction      - Set direction (long/short/both)
     POST /api/panic          - Close all positions
 
@@ -399,16 +401,34 @@ DASHBOARD_HTML = """
         <button class="btn btn-warning" id="btn-disable" onclick="toggleTrading(false)">
             ⏸️ Disable Trading
         </button>
-        
+
+        <button class="btn btn-warning" id="btn-freeze" onclick="freezeTrading()" style="background: linear-gradient(90deg, #3b82f6, #1e40af);">
+            ❄️ Freeze Trading
+        </button>
+        <button class="btn btn-success" id="btn-unfreeze" onclick="unfreezeTrading()" style="background: linear-gradient(90deg, #10b981, #059669); display:none;">
+            ▶️ Unfreeze Trading
+        </button>
+
         <select class="direction-select" id="direction-select" onchange="setDirection(this.value)">
             <option value="both">📊 Both Directions</option>
             <option value="long">📈 Long Only</option>
             <option value="short">📉 Short Only</option>
         </select>
-        
+
         <button class="btn panic-btn" onclick="panicCloseAll()">
             🚨 PANIC - Close All
         </button>
+    </div>
+
+    <div id="freeze-indicator" style="display: none; text-align: center; padding: 15px; margin-bottom: 20px; background: rgba(59, 130, 246, 0.2); border: 2px solid #3b82f6; border-radius: 10px;">
+        <span style="font-size: 1.3em; color: #3b82f6;">❄️ TRADING FROZEN</span>
+        <div style="margin-top: 5px; color: #888;">
+            <strong>Reason:</strong> <span id="freeze-reason">-</span> |
+            <strong>Since:</strong> <span id="freeze-time">-</span>
+        </div>
+        <div style="margin-top: 5px; font-size: 0.9em; color: #666;">
+            ⚠️ No new trades will be opened. Existing positions continue with TP/SL active.
+        </div>
     </div>
     
     <div class="grid">
@@ -581,16 +601,20 @@ DASHBOARD_HTML = """
             countdown = REFRESH_SECONDS;
             document.getElementById('countdown').textContent = countdown;
             try {
+                console.log('[Dashboard] Fetching data from /api/status');
                 const response = await fetch(API_BASE + '/api/status');
+                console.log('[Dashboard] Response status:', response.status);
                 const data = await response.json();
+                console.log('[Dashboard] Data received:', Object.keys(data));
                 updateDashboard(data);
-                document.getElementById('last-check-status').textContent = '✅ OK';
+                document.getElementById('last-check-status').textContent = 'OK';
                 document.getElementById('last-check-status').style.color = '#00ff88';
             } catch (error) {
-                console.error('Failed to fetch data:', error);
+                console.error('[Dashboard] ERROR fetching data:', error);
+                console.error('[Dashboard] Stack:', error.stack);
                 document.getElementById('connection-status').textContent = 'Disconnected';
                 document.getElementById('connection-indicator').className = 'status-indicator status-disconnected';
-                document.getElementById('last-check-status').textContent = '❌ Error';
+                document.getElementById('last-check-status').textContent = 'Error';
                 document.getElementById('last-check-status').style.color = '#ff4444';
             }
         }
@@ -638,6 +662,22 @@ DASHBOARD_HTML = """
             document.getElementById('btn-enable').disabled = engine.trading_enabled;
             document.getElementById('btn-disable').disabled = !engine.trading_enabled;
             document.getElementById('direction-select').value = engine.direction || 'both';
+
+            // Freeze/Unfreeze controls
+            const isFrozen = manager.trading_frozen || false;
+            document.getElementById('btn-freeze').style.display = isFrozen ? 'none' : 'flex';
+            document.getElementById('btn-unfreeze').style.display = isFrozen ? 'flex' : 'none';
+
+            // Freeze indicator banner
+            const freezeIndicator = document.getElementById('freeze-indicator');
+            if (isFrozen) {
+                freezeIndicator.style.display = 'block';
+                document.getElementById('freeze-reason').textContent = manager.freeze_reason || 'Unknown';
+                const freezeTime = manager.freeze_timestamp ? new Date(manager.freeze_timestamp).toLocaleTimeString() : '-';
+                document.getElementById('freeze-time').textContent = freezeTime;
+            } else {
+                freezeIndicator.style.display = 'none';
+            }
             
             // Update timeframe display
             document.getElementById('timeframe').textContent = engine.timeframe || 'M5';
@@ -796,18 +836,37 @@ DASHBOARD_HTML = """
             fetchData();
         }
         
+        async function freezeTrading() {
+            if (!confirm('FREEZE Trading?\\n\\nThis will:\\n- Stop opening NEW trades\\n- Keep existing positions running (TP/SL active)\\n\\nContinue?')) return;
+
+            await fetch(API_BASE + '/api/trade/freeze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: 'Manual freeze' })
+            });
+            fetchData();
+        }
+
+        async function unfreezeTrading() {
+            await fetch(API_BASE + '/api/trade/unfreeze', { method: 'POST' });
+            fetchData();
+        }
+
         async function panicCloseAll() {
-            if (!confirm('⚠️ PANIC: Close ALL positions immediately?')) return;
-            if (!confirm('🚨 This cannot be undone. Are you absolutely sure?')) return;
-            
+            if (!confirm('PANIC: Close ALL positions immediately?')) return;
+            if (!confirm('WARNING: This cannot be undone. Are you absolutely sure?')) return;
+
             await fetch(API_BASE + '/api/panic', { method: 'POST' });
             fetchData();
         }
         
         // Initial fetch and auto-refresh
+        console.log('[Dashboard] Initializing dashboard...');
+        console.log('[Dashboard] API_BASE:', API_BASE);
         fetchData();
         refreshInterval = setInterval(fetchData, REFRESH_SECONDS * 1000);
         countdownInterval = setInterval(updateCountdown, 1000);
+        console.log('[Dashboard] Dashboard initialized. Auto-refresh every', REFRESH_SECONDS, 'seconds');
     </script>
 </body>
 </html>
@@ -854,13 +913,17 @@ class WebDashboard:
         # Routes
         @self.app.route('/')
         def index():
+            logger.debug("[API] Dashboard page requested")
             return render_template_string(DASHBOARD_HTML)
         
         @self.app.route('/api/status')
         def api_status():
+            logger.debug("[API] /api/status requested")
             if self.engine:
                 data = self.engine.get_dashboard_data()
+                logger.debug(f"[API] Returning data with {len(data)} keys")
                 return jsonify(clean_nans(data))
+            logger.error("[API] Engine not connected")
             return jsonify({"error": "Engine not connected"})
         
         @self.app.route('/api/positions')
@@ -903,6 +966,22 @@ class WebDashboard:
             if self.engine:
                 result = self.engine.panic_close_all()
                 return jsonify(result)
+            return jsonify({"error": "Engine not connected"})
+
+        @self.app.route('/api/trade/freeze', methods=['POST'])
+        def api_freeze_trading():
+            if self.engine:
+                data = request.get_json() or {}
+                reason = data.get('reason', 'Manual freeze')
+                self.engine.freeze_trading(reason)
+                return jsonify({"success": True, "trading_frozen": True, "reason": reason})
+            return jsonify({"error": "Engine not connected"})
+
+        @self.app.route('/api/trade/unfreeze', methods=['POST'])
+        def api_unfreeze_trading():
+            if self.engine:
+                self.engine.unfreeze_trading()
+                return jsonify({"success": True, "trading_frozen": False})
             return jsonify({"error": "Engine not connected"})
     
     def start(self, threaded: bool = True):

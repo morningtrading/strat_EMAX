@@ -136,7 +136,13 @@ class PositionManager:
         self.starting_balance = None
         self.last_reset_date = None
         self.trade_history: List[TradeResult] = []
-        
+
+        # Freeze trading state (for news events, etc.)
+        # When frozen: NO new trades, but existing positions continue (TP/SL active)
+        self.trading_frozen = False
+        self.freeze_reason = None
+        self.freeze_timestamp = None
+
         logger.info(f"PositionManager initialized: max_margin=${self.max_margin}, SL_type={self.sl_type}")
     
     def _load_config(self, config_path: Path) -> Dict:
@@ -585,11 +591,42 @@ class PositionManager:
             ]
         }
     
+    def freeze_trading(self, reason: str = "Manual freeze"):
+        """
+        Freeze trading - prevents NEW trades but allows existing positions to run
+
+        This is useful for:
+        - High-impact news events
+        - Market volatility periods
+        - Manual risk management
+        - Automated news detection (future feature)
+
+        Args:
+            reason: Reason for freezing (e.g., "News event", "High volatility")
+        """
+        self.trading_frozen = True
+        self.freeze_reason = reason
+        self.freeze_timestamp = datetime.now().isoformat()
+        logger.warning(f"⏸️ TRADING FROZEN: {reason}")
+
+    def unfreeze_trading(self):
+        """Unfreeze trading - resume taking new trades"""
+        was_frozen = self.trading_frozen
+        self.trading_frozen = False
+        self.freeze_reason = None
+        self.freeze_timestamp = None
+        if was_frozen:
+            logger.info("▶️ TRADING UNFROZEN: Resuming new trades")
+
+    def is_trading_frozen(self) -> bool:
+        """Check if trading is currently frozen"""
+        return self.trading_frozen
+
     def get_manager_status(self) -> Dict:
         """Get current manager status for dashboard"""
         can_trade, loss_percent = self.check_daily_loss_limit()
         session_ok, session_reason = self.check_session_filter()
-        
+
         return {
             "max_margin_per_trade": self.max_margin,
             "sl_type": self.sl_type,
@@ -601,7 +638,10 @@ class PositionManager:
             "daily_loss_limit": self.max_daily_loss_percent,
             "current_daily_loss": loss_percent,
             "can_trade": can_trade,
-            "daily_trades": self.daily_trades
+            "daily_trades": self.daily_trades,
+            "trading_frozen": self.trading_frozen,
+            "freeze_reason": self.freeze_reason,
+            "freeze_timestamp": self.freeze_timestamp
         }
 
 

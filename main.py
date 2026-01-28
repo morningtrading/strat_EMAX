@@ -233,7 +233,29 @@ class TradingEngine:
             self.direction = direction
             self.strategy.set_direction(direction)
             logger.info(f"Direction set to: {direction}")
-    
+
+    def freeze_trading(self, reason: str = "Manual freeze"):
+        """
+        Freeze trading - stops NEW trades but lets existing positions run
+
+        Useful for:
+        - High-impact news events (manual or automated)
+        - High volatility periods
+        - Manual risk control
+
+        Args:
+            reason: Why trading is being frozen
+        """
+        self.position_manager.freeze_trading(reason)
+
+    def unfreeze_trading(self):
+        """Unfreeze trading - resume taking new trades"""
+        self.position_manager.unfreeze_trading()
+
+    def is_trading_frozen(self) -> bool:
+        """Check if trading is currently frozen"""
+        return self.position_manager.is_trading_frozen()
+
     def panic_close_all(self):
         """Close all positions immediately"""
         logger.warning("PANIC BUTTON PRESSED!")
@@ -371,9 +393,17 @@ class TradingEngine:
                 }
         
         # Execute if trading enabled and we have a trading signal
+        # IMPORTANT: Check both trading_enabled AND frozen state
+        # - trading_enabled=False: Complete stop (no new trades)
+        # - trading_frozen=True: Freeze new trades (existing positions still run TP/SL)
         if not self.trading_enabled or self.paused:
             return
-        
+
+        # Check if trading is frozen (news events, high volatility, etc.)
+        if self.position_manager.is_trading_frozen():
+            logger.debug(f"[{symbol}] Trading frozen - skipping signal. Reason: {self.position_manager.freeze_reason}")
+            return
+
         if signal.action == SignalType.BUY:
             result = self.position_manager.open_position(symbol, "LONG", signal.reason)
             if result.success:

@@ -15,10 +15,8 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# PID files
-ENGINE_PID_FILE="$SCRIPT_DIR/.engine.pid"
-DASHBOARD_PID_FILE="$SCRIPT_DIR/.dashboard.pid"
-LOG_FILE="$SCRIPT_DIR/logs/engine.log"
+# Log file
+LOG_FILE="$SCRIPT_DIR/trading_engine.log"
 
 # Ensure logs directory exists
 mkdir -p "$SCRIPT_DIR/logs"
@@ -43,29 +41,60 @@ is_engine_running() {
 
 # Function to check if dashboard is running
 is_dashboard_running() {
-    if pgrep -f "python.*web_dashboard.py" > /dev/null 2>&1 || \
-       lsof -i :8080 > /dev/null 2>&1; then
+    # Dashboard is integrated with main.py, so check if port 8080 is in use
+    if lsof -i :8080 > /dev/null 2>&1; then
         return 0
     fi
     return 1
 }
 
+# Function to show running processes
+show_running_processes() {
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━ RUNNING PROCESSES ━━━━━━━━━━━━━━━━${NC}"
+
+    # Get all relevant PIDs
+    local pids=$(pgrep -f "python.*main.py|wine.*python" 2>/dev/null || true)
+
+    if [ -z "$pids" ]; then
+        echo -e "  ${YELLOW}No EMAX-related processes found${NC}"
+    else
+        # Display each process with PID and name
+        echo "$pids" | while read -r pid; do
+            if [ -n "$pid" ]; then
+                local cmd=$(ps -p "$pid" -o pid=,comm=,args= 2>/dev/null | head -1)
+                if [ -n "$cmd" ]; then
+                    echo -e "  ${GREEN}PID $pid:${NC} $cmd"
+                fi
+            fi
+        done
+    fi
+
+    # Also check what's on port 8080
+    local port_pid=$(lsof -ti:8080 2>/dev/null || true)
+    if [ -n "$port_pid" ]; then
+        echo -e "  ${CYAN}Port 8080:${NC} PID $port_pid (Dashboard)"
+    fi
+
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+}
+
 # Function to show status
 show_status() {
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━ STATUS ━━━━━━━━━━━━━━━━━━${NC}"
-    
+
     if is_engine_running; then
         echo -e "  Engine:    ${GREEN}● RUNNING${NC}"
     else
         echo -e "  Engine:    ${RED}○ STOPPED${NC}"
     fi
-    
+
     if is_dashboard_running; then
         echo -e "  Dashboard: ${GREEN}● RUNNING${NC} (http://localhost:8080)"
     else
         echo -e "  Dashboard: ${RED}○ STOPPED${NC}"
     fi
-    
+
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 }
@@ -73,22 +102,28 @@ show_status() {
 # Function to start engine
 start_engine() {
     echo -e "${YELLOW}Starting EMAX Trading Engine...${NC}"
-    
+
     if is_engine_running; then
         echo -e "${YELLOW}Engine is already running!${NC}"
         return 1
     fi
-    
+
+    # Wine Python requires DISPLAY to be set (use existing X server)
+    if [ -z "$DISPLAY" ]; then
+        export DISPLAY=:0
+    fi
+
     # Start engine in background
-    nohup wine python main.py >> "$LOG_FILE" 2>&1 &
-    ENGINE_PID=$!
-    echo $ENGINE_PID > "$ENGINE_PID_FILE"
-    
+    # NOTE: Wine Python cannot handle file redirects when backgrounded,
+    # so we redirect to /dev/null. main.py has its own file logging configured.
+    DISPLAY="$DISPLAY" wine python main.py </dev/null >/dev/null 2>&1 &
+
     sleep 3
-    
+
     if is_engine_running; then
-        echo -e "${GREEN}✓ Engine started successfully (PID: $ENGINE_PID)${NC}"
+        echo -e "${GREEN}✓ Engine started successfully${NC}"
         echo -e "${CYAN}  Dashboard should be available at: http://localhost:8080${NC}"
+        echo -e "${CYAN}  Logs: $LOG_FILE${NC}"
         return 0
     else
         echo -e "${RED}✗ Failed to start engine. Check logs: $LOG_FILE${NC}"
@@ -122,7 +157,6 @@ stop_engine() {
     
     if ! is_engine_running; then
         echo -e "${GREEN}✓ Engine stopped successfully${NC}"
-        rm -f "$ENGINE_PID_FILE"
         return 0
     else
         echo -e "${RED}✗ Failed to stop engine${NC}"
@@ -241,6 +275,7 @@ if [ $# -gt 0 ]; then
             ;;
         status)
             show_header
+            show_running_processes
             show_status
             ;;
         logs)
@@ -260,6 +295,7 @@ fi
 # Interactive menu loop
 while true; do
     show_header
+    show_running_processes
     show_status
     show_menu
     

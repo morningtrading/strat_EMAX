@@ -324,10 +324,17 @@ chmod +x ./reset_dashboard.sh
 
 ```
 start_EMAX/
-├── README.md                           # This file
+├── README.md                           # This file (user guide)
+├── CLAUDE.md                           # AI assistant guidelines
 ├── requirements.txt                    # Python dependencies
 ├── menu.sh                             # Engine control script ⭐
 ├── reset_dashboard.sh                  # Clean restart script
+│
+├── .claude/                            # Claude Code configuration
+│   ├── settings.local.json             # Permissions & settings
+│   └── commands/                       # Custom slash commands
+│       ├── debug-dashboard.md          # /debug-dashboard
+│       └── validate-config.md          # /validate-config
 │
 ├── main.py                             # 🚀 Engine entry point
 │
@@ -343,7 +350,9 @@ start_EMAX/
 │
 ├── dashboard/                          # Web interface
 │   ├── __init__.py
-│   └── web_dashboard.py                # Flask dashboard (port 8080)
+│   ├── web_dashboard.py                # Flask dashboard (port 8080)
+│   ├── validate_dashboard.py          # 🔍 Pre-flight validator
+│   └── DEBUGGING.md                    # 📖 Debugging guide
 │
 ├── tests/                              # Unit tests
 │   ├── __init__.py
@@ -512,12 +521,33 @@ tail -f logs/engine.log
 
 ### Dashboard Not Loading
 
-```bash
-# Check if Flask is running
-netstat -tulpn | grep 8080
+**Quick Diagnosis (30 seconds):**
 
-# Restart dashboard
+```bash
+# 1. Validate JavaScript syntax (catches 90% of issues)
+curl -s http://localhost:8080/ | sed -n '/<script>/,/<\/script>/p' | sed '1d;$d' > /tmp/d.js
+node --check /tmp/d.js
+
+# 2. Test API endpoint
+curl -s http://localhost:8080/api/status | jq -r '.connection_status.connected'
+
+# 3. Verify engine is running
+ps aux | grep "python.*main.py" | grep -v grep
+```
+
+**Common Issues:**
+- **JavaScript syntax error**: Run `python3 dashboard/validate_dashboard.py`
+- **API not responding**: Check engine is running and MT5 connected
+- **Browser cache**: Hard refresh with `Ctrl+Shift+R`
+
+**Detailed Guide**: See [`dashboard/DEBUGGING.md`](dashboard/DEBUGGING.md) for systematic debugging approach.
+
+```bash
+# Quick fix: Restart dashboard
 ./reset_dashboard.sh
+
+# Advanced: Validate before starting
+python3 dashboard/validate_dashboard.py
 ```
 
 ### Wine Errors
@@ -581,6 +611,58 @@ With current settings:
 2. **Validation on unseen data is mandatory**
 3. **Simpler strategies often outperform complex ones**
 4. **Market regimes change** - be prepared to adapt
+
+---
+
+## 🛠️ Debugging Tools
+
+### Dashboard Validator
+
+Pre-flight checks before starting the engine:
+
+```bash
+# Validate dashboard template for syntax errors
+python3 dashboard/validate_dashboard.py
+
+# Catches:
+# - Duplicate const declarations
+# - Unescaped newlines in strings
+# - Emojis in JavaScript (encoding issues)
+# - Missing API endpoints
+```
+
+### Claude Code Commands
+
+Custom slash commands for quick diagnostics:
+
+```bash
+# In Claude Code terminal
+/debug-dashboard    # Systematic dashboard checks
+/validate-config    # Validate trading configuration
+```
+
+### Manual Debugging
+
+```bash
+# Test JavaScript syntax
+curl -s http://localhost:8080/ | sed -n '/<script>/,/<\/script>/p' | sed '1d;$d' > /tmp/d.js
+node --check /tmp/d.js
+
+# Test API endpoint
+curl -s http://localhost:8080/api/status | jq
+
+# Watch live logs with filtering
+tail -f trading_engine.log | grep -E "\[API\]|\[Dashboard\]|ERROR"
+
+# Quick status check
+curl -s http://localhost:8080/api/status | jq -r '"Connected: \(.connection_status.connected), Balance: $\(.account_info.balance)"'
+```
+
+### Documentation
+
+- **For Users**: This README
+- **For Debugging**: [`dashboard/DEBUGGING.md`](dashboard/DEBUGGING.md) - Comprehensive troubleshooting guide
+- **For AI Assistants**: [`CLAUDE.md`](CLAUDE.md) - Development guidelines and common pitfalls
 
 ---
 
