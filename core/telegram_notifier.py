@@ -78,6 +78,7 @@ class TelegramNotifier:
         self.notify_exit = tg_config.get('notify_on_exit', True)
         self.should_notify_error = tg_config.get('notify_on_error', True)
         self.daily_summary_time = tg_config.get('daily_summary_utc', '21:00')
+        self.message_prefix = tg_config.get('message_prefix', '')
         
         # API endpoint
         self.api_url = f"https://api.telegram.org/bot{self.bot_token}"
@@ -124,7 +125,7 @@ class TelegramNotifier:
                 f"{self.api_url}/sendMessage",
                 json={
                     'chat_id': self.chat_id,
-                    'text': text,
+                    'text': f"[{self.message_prefix}] {text}" if self.message_prefix else text,
                     'parse_mode': parse_mode
                 },
                 timeout=10
@@ -169,6 +170,7 @@ class TelegramNotifier:
         
         # Single line with all details
         message = f"{emoji} <b>{symbol} {direction}</b> {volume} lots @ {price}"
+        message += f" | {reason}"
         if sl:
             message += f" | Stop Loss: {sl}"
         if margin is not None:

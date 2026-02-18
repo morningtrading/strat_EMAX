@@ -10,45 +10,26 @@ PURPOSE:
     tracking.
 
 INPUTS:
-    - Configuration from config/trading_config.json
-    - MT5 terminal must be running under Wine with an account logged in
+    - Configuration: Uses constants.py and trading_config.json
+    - System: Requires MT5 terminal running under Wine
 
 OUTPUTS:
-    - Connection status (connected/disconnected)
-    - Account information (balance, equity, margin, profit)
-    - Symbol information and prices
-    - Position and order data
-    - Trade execution results
+    - Connection to MT5 terminal
+    - Real-time price data streams
+    - Account balance and margin updates
+    - Trade execution (Orders/Positions)
 
-HOW TO INSTALL:
-    1. Ensure Wine is installed: sudo apt install wine
-    2. Install Python in Wine: wine python-3.10.x.exe
-    3. Install MetaTrader5 package: wine pip install MetaTrader5
-    4. Start MT5 terminal: wine terminal64.exe
-    5. This module is imported by other components
+CONTEXT:
+    This is the foundational infrastructure layer.
+    Imported by:
+    - main.py
+    - core/position_manager.py
 
-SEQUENCE IN OVERALL SYSTEM:
-    [MT5 Terminal] <-> [MT5 Connector] <-> [Strategy Engine]
-                                      <-> [Position Manager]
-                                      <-> [Dashboard]
-
-    This is the FOUNDATIONAL module - all other modules depend on it for
-    MT5 communication.
-
-OBJECTIVE:
-    Provide a clean, testable interface to MT5 that abstracts away the
-    complexity of Wine/MT5 communication and provides error handling,
-    reconnection logic, and data validation.
-
-SAFETY FEATURES:
-    - Demo account verification before trading
-    - Connection health monitoring
-    - Automatic reconnection attempts
-    - Error logging and notification
+VERSION HISTORY:
+    1.1.0 (2026-01-28) - Added constants.py integration
+    1.0.0 (2026-01-22) - Initial release
 
 AUTHOR: EMAX Trading Engine
-VERSION: 1.0.0
-LAST UPDATED: 2026-01-22
 ================================================================================
 """
 
@@ -61,11 +42,13 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Tuple, Any
 from pathlib import Path
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Add parent directory for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from core.constants import DEFAULTS, LIMITS
+
+
+# Configure logging - Delegated to main application
 logger = logging.getLogger('MT5Connector')
 
 # Import MetaTrader5 - must be run under Wine Python
@@ -114,7 +97,9 @@ class MT5Connector:
         self.last_error = None
         self.connection_time = None
         self.reconnect_attempts = 0
+        self.reconnect_attempts = 0
         self.max_reconnect_attempts = 5
+        self.server_time_offset = 0  # Difference: System Time - Server Time
         
         # Load configuration
         if config_path is None:
@@ -202,7 +187,37 @@ class MT5Connector:
         logger.info(f"Server: {self.account_info.server}")
         logger.info(f"Balance: ${self.account_info.balance:.2f}")
         
+        # Calculate server time offset
+        self._calculate_server_offset()
+        
         return True
+
+    def _calculate_server_offset(self):
+        """
+        Calculate time offset between local system and MT5 server.
+        Positive offset means System Time is ahead of Server Time.
+        """
+        # List of liquid symbols to check for latest tick
+        ref_symbols = ['BTCUSD', 'EURUSD', 'GBPUSD', 'XAUUSD', 'SP500', 'USTEC']
+        max_tick_time = 0
+        
+        for sym in ref_symbols:
+            # Ensure symbol is selected
+            if not mt5.symbol_select(sym, True):
+                continue
+                
+            tick = mt5.symbol_info_tick(sym)
+            if tick and tick.time > max_tick_time:
+                max_tick_time = tick.time
+        
+        if max_tick_time > 0:
+            # We assume the "latest" tick is close to "now" in Server Time
+            # So Offset = System_Now - Server_Now (approx max_tick_time)
+            self.server_time_offset = datetime.now().timestamp() - max_tick_time
+            logger.info(f"Server Time Offset calculated: {self.server_time_offset:.2f} seconds")
+        else:
+            logger.warning("Could not calculate server time offset (no live ticks found)")
+            self.server_time_offset = 0
     
     def disconnect(self):
         """Disconnect from MetaTrader 5"""
@@ -255,6 +270,83 @@ class MT5Connector:
             "timestamp": datetime.now().isoformat()
         }
     
+    def is_market_open(self, symbol: str) -> bool:
+        """
+        Check if market is currently open for a symbol.
+        Uses a heuristic based on data staleness since native session API is missing.
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            bool: True if market appears open
+        """
+        info = mt5.symbol_info(symbol)
+        if not info:
+            return False
+            
+        if info.trade_mode != 4:  # 4 = SYMBOL_TRADE_MODE_FULL
+            return False
+            
+        # Check staleness
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            return False
+            
+        # If last tick is older than configured staleness (default 5 mins), assume market is closed
+        # This handles weekends/holidays where trade_mode stays FULL
+        # We adjust "now" by the server offset to compare apples to apples
+        server_now = datetime.now().timestamp() - self.server_time_offset
+        staleness = server_now - tick.time
+        
+        limit = DEFAULTS.get('MARKET_STALENESS_SEC', 300)
+        
+        # Debug only if very stale but claimed open
+        if staleness > limit and info.trade_mode == 4:
+            # logger.debug(f"{symbol} stale: {staleness:.1f}s (Limit: {limit}s)")
+            pass
+            
+        return staleness < limit
+
+    def _get_filling_mode(self, symbol: str) -> int:
+        """
+        Get the correct filling mode for a symbol.
+        Checks symbol info flags:
+        1 (SYMBOL_FILLING_FOK) -> ORDER_FILLING_FOK (0)
+        2 (SYMBOL_FILLING_IOC) -> ORDER_FILLING_IOC (1)
+        
+        Returns:
+            int: MT5 filling mode constant
+        """
+        try:
+            # Use raw mt5 call to avoid wrapper overhead if needed, 
+            # but symbol_info is cached by MT5 likely.
+            info = mt5.symbol_info(symbol)
+            if not info:
+                return mt5.ORDER_FILLING_FOK # Default
+            
+            filling_mode = info.filling_mode
+            
+            # Priority: FOK > IOC > RETURN
+            # Note: The flags are 1 (FOK) and 2 (IOC). 
+            # The order filling constants are 0 (FOK), 1 (IOC), 2 (RETURN).
+            
+            # If FOK (1) is supported
+            if filling_mode & 1:
+                return mt5.ORDER_FILLING_FOK
+                
+            # If IOC (2) is supported
+            if filling_mode & 2:
+                return mt5.ORDER_FILLING_IOC
+                
+            # Fallback
+            return mt5.ORDER_FILLING_RETURN
+            
+        except Exception as e:
+            logger.error(f"Error determining filling mode for {symbol}: {e}")
+            return mt5.ORDER_FILLING_FOK
+
+
     def get_symbol_info(self, symbol: str) -> Optional[Dict]:
         """
         Get detailed symbol information
@@ -294,9 +386,10 @@ class MT5Connector:
             "trade_contract_size": info.trade_contract_size,
             "margin_initial": info.margin_initial,
             "trade_mode": info.trade_mode,  # 0=disabled, 4=full
-            "trade_allowed": info.trade_mode == 4,  # True if trading enabled
+            "trade_allowed": self.is_market_open(symbol),
             "bid": tick.bid if tick else None,
             "ask": tick.ask if tick else None,
+            "path": info.path,
             "timestamp": datetime.now().isoformat()
         }
     
@@ -357,6 +450,53 @@ class MT5Connector:
         rates = mt5.copy_rates_from_pos(symbol, tf, 0, count)
         if rates is None:
             logger.warning(f"Failed to get rates for {symbol}")
+            return None
+        
+        result = []
+        for rate in rates:
+            result.append({
+                "time": datetime.fromtimestamp(rate['time']).isoformat(),
+                "open": rate['open'],
+                "high": rate['high'],
+                "low": rate['low'],
+                "close": rate['close'],
+                "volume": rate['tick_volume']
+            })
+        
+        return result
+
+    def get_rates_range(self, symbol: str, timeframe: str, date_from: datetime, date_to: datetime) -> Optional[List[Dict]]:
+        """
+        Get historical OHLCV data for a specific date range
+        
+        Args:
+            symbol: Trading symbol
+            timeframe: Timeframe string (M1, M5, M15, H1, etc.)
+            date_from: Start date
+            date_to: End date
+            
+        Returns:
+            List of OHLCV dicts or None
+        """
+        if not self.ensure_connected():
+            return None
+        
+        # Map timeframe string to MT5 constant
+        tf_map = {
+            'M1': mt5.TIMEFRAME_M1,
+            'M5': mt5.TIMEFRAME_M5,
+            'M15': mt5.TIMEFRAME_M15,
+            'M30': mt5.TIMEFRAME_M30,
+            'H1': mt5.TIMEFRAME_H1,
+            'H4': mt5.TIMEFRAME_H4,
+            'D1': mt5.TIMEFRAME_D1,
+        }
+        
+        tf = tf_map.get(timeframe.upper(), mt5.TIMEFRAME_M5)
+        
+        rates = mt5.copy_rates_range(symbol, tf, date_from, date_to)
+        if rates is None:
+            logger.warning(f"Failed to get rates range for {symbol}")
             return None
         
         result = []
@@ -494,12 +634,14 @@ class MT5Connector:
         
         return result
     
-    def get_history_deals(self, days: int = 1) -> List[Dict]:
+    def get_history_deals(self, days: int = 1, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None) -> List[Dict]:
         """
-        Get historical deals (executed trades) from the last N days
+        Get historical deals (executed trades)
         
         Args:
-            days: Number of days to look back
+            days: Number of days to look back (if from_date not specified)
+            from_date: Start date (overrides days)
+            to_date: End date (default: now)
             
         Returns:
             List of deal dicts with PnL
@@ -507,8 +649,11 @@ class MT5Connector:
         if not self.ensure_connected():
             return []
         
-        from_date = datetime.now() - timedelta(days=days)
-        to_date = datetime.now()
+        if from_date is None:
+            from_date = datetime.now() - timedelta(days=days)
+        
+        if to_date is None:
+            to_date = datetime.now()
         
         deals = mt5.history_deals_get(from_date, to_date)
         
@@ -604,8 +749,23 @@ class MT5Connector:
         if tp:
             request["tp"] = tp
         
+        # Determine filling mode dynamically
+        filling_mode = self._get_filling_mode(symbol)
+        request["type_filling"] = filling_mode
+        
         # Send order
         result = mt5.order_send(request)
+        
+        # Fallback retry only if the specific mode failed with 10030
+        if result is not None and result.retcode == 10030:
+            logger.warning(f"Calculated filling mode {filling_mode} unsupported, trying alternatives")
+            # Try others
+            for mode in [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]:
+                if mode == filling_mode: continue
+                request["type_filling"] = mode
+                result = mt5.order_send(request)
+                if result.retcode != 10030:
+                    break
         
         # Handle None result (MT5 rejected silently)
         if result is None:
@@ -637,12 +797,13 @@ class MT5Connector:
                 "retcode": result.retcode
             }
     
-    def close_position(self, ticket: int) -> Dict:
+    def close_position(self, ticket: int, magic: Optional[int] = None) -> Dict:
         """
         Close a specific position by ticket
         
         Args:
             ticket: Position ticket number
+            magic: Optional magic number override
             
         Returns:
             Dict with result info
@@ -670,6 +831,9 @@ class MT5Connector:
         
         price = tick.bid if close_type == mt5.ORDER_TYPE_SELL else tick.ask
         
+        # Use provided magic or fallback to position magic (safer than default)
+        magic_val = magic if magic is not None else pos.magic
+        
         # Build close request
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -679,13 +843,29 @@ class MT5Connector:
             "position": ticket,
             "price": price,
             "deviation": 20,
-            "magic": 0,
+            "magic": magic_val,
             "comment": "Close by EMAX",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
         
+        # Determine filling mode dynamically
+        filling_mode = self._get_filling_mode(symbol)
+        request["type_filling"] = filling_mode
+        
+        # Send order
         result = mt5.order_send(request)
+        
+        # Determine filling mode based on symbol info or try default
+        if result is not None and result.retcode == 10030:
+            logger.warning(f"Calculated closing filling mode {filling_mode} unsupported, trying alternatives")
+            # Try others
+            for mode in [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]:
+                if mode == filling_mode: continue
+                request["type_filling"] = mode
+                result = mt5.order_send(request)
+                if result.retcode != 10030:
+                    break
         
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             logger.info(f"Position {ticket} closed @ {price}")
@@ -694,26 +874,36 @@ class MT5Connector:
             logger.error(f"Failed to close position {ticket}: {result.comment}")
             return {"success": False, "error": result.comment, "retcode": result.retcode}
     
-    def close_all_positions(self, symbol: Optional[str] = None) -> Dict:
+    def close_all_positions(self, symbol: Optional[str] = None, magic: Optional[int] = None) -> Dict:
         """
         Close all open positions (panic button)
         
         Args:
             symbol: Optional symbol filter
+            magic: Optional magic number filter (defaults to DEFAULT_MAGIC_NUMBER if None)
             
         Returns:
             Dict with summary
         """
+        # Resolving Magic Number
+        target_magic = magic if magic is not None else DEFAULTS.get("DEFAULT_MAGIC_NUMBER", 123456)
+        
         positions = self.get_positions(symbol)
         
         if not positions:
             return {"success": True, "closed": 0, "message": "No positions to close"}
         
+        # Filter by magic number
+        positions = [p for p in positions if p.magic == target_magic]
+        
+        if not positions:
+             return {"success": True, "closed": 0, "message": f"No positions found for Magic {target_magic}"}
+        
         closed = 0
         failed = 0
         
         for pos in positions:
-            result = self.close_position(pos['ticket'])
+            result = self.close_position(pos['ticket'], magic=target_magic)
             if result['success']:
                 closed += 1
             else:

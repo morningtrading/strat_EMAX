@@ -18,6 +18,7 @@
 3. **ALWAYS** test changes on demo account first
 4. **ALWAYS** validate syntax before claiming "fixed"
 5. **ALWAYS** use curl to test after making dashboard changes
+6. **NEVER** use config fallbacks (e.g., `.get('key', default)`). ALWAYS raise explicit errors if config is missing.
 
 ## Common Issues & Solutions
 
@@ -108,35 +109,35 @@ start_EMAX/
 
 ### After Making Changes
 
-1. **Validate syntax**:
+1. **Verify Python Syntax (CRITICAL)**:
    ```bash
-   # For Python
-   python3 -m py_compile file.py
+   python3 -m py_compile main.py
+   python3 -m py_compile core/ema_strategy.py
+   # ... check any modified file
+   ```
 
-   # For dashboard
+2. **Verify Python Runtime (CRITICAL)**:
+   *After editing logic or config, perform a Dry Run:*
+   ```bash
+   timeout 10 wine python main.py
+   # Check logs for "IndentationError", "TypeError", or immediate crash.
+   ```
+
+3. **Validate Dashboard Syntax**:
+   ```bash
    python3 dashboard/validate_dashboard.py
-
+   
    # For JavaScript
    curl -s http://localhost:8080/ | sed -n '/<script>/,/<\/script>/p' | sed '1d;$d' > /tmp/d.js
    node --check /tmp/d.js
    ```
 
-2. **Test the change**:
-   ```bash
-   # Restart engine
-   pkill -f "python.*main.py"
-   nohup wine python main.py > /dev/null 2>&1 &
-
-   # Test endpoint
-   curl -s http://localhost:8080/api/status | jq
-   ```
-
-3. **Verify in logs**:
+4. **Verify in logs**:
    ```bash
    tail -f trading_engine.log
    ```
 
-4. **Only then** report to user that it's fixed
+5. **Only then** report to user that it's fixed
 
 ## Dashboard-Specific Guidelines
 

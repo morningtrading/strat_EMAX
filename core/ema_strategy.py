@@ -106,19 +106,26 @@ class EMAStrategy:
         self.config = self._load_config(config_path)
         
         # Strategy parameters from config
-        strategy_config = self.config.get('strategy', {})
-        self.fast_period = strategy_config.get('fast_ema_period', 9)
-        self.slow_period = strategy_config.get('slow_ema_period', 41)
-        self.direction = strategy_config.get('direction', 'both')  # both, long, short
-        self.prevent_duplicates = strategy_config.get('prevent_duplicate_signals', True)
-        self.min_bars_between = strategy_config.get('min_bars_between_trades', 1)
-        self.trading_enabled = strategy_config.get('trading_enabled', True)
-        
-        # Exit rules from config
-        exit_config = self.config.get('exit_rules', {})
-        self.exit_on_cross = exit_config.get('exit_on_ema_cross', True)
-        self.exit_on_price_deviation = exit_config.get('exit_on_price_below_slow_ema', True)
-        self.price_deviation_percent = exit_config.get('price_below_slow_ema_percent', 0.1)
+        # STRICT CONFIG ACCESS
+        try:
+            strategy_config = self.config['strategy']
+            self.fast_period = strategy_config['fast_ema_period']
+            self.slow_period = strategy_config['slow_ema_period']
+            self.direction = strategy_config['direction']
+            self.prevent_duplicates = strategy_config['prevent_duplicate_signals']
+            self.min_bars_between = strategy_config['min_bars_between_trades']
+            self.trading_enabled = strategy_config['trading_enabled']
+            
+            # Exit Rules (Strict)
+            exit_config = self.config['exit_rules']
+            self.exit_on_cross = exit_config['exit_on_ema_cross']
+            self.exit_on_price_deviation = exit_config['exit_on_price_below_slow_ema']
+            self.price_deviation_percent = exit_config['price_below_slow_ema_percent']
+        except KeyError as e:
+            logger.error(f"STRICT CONFIG ERROR: Missing key {e} in strategy/exit_rules")
+            # Set fail-safe defaults or allow crash? User asked for strict errors.
+            # But we are in __init__, so we can't easily "stop" without raising.
+            raise ValueError(f"CRITICAL: Missing configuration key {e}")
         
         # Per-symbol settings from config
         self.symbol_settings = self.config.get('symbols', {}).get('settings', {})
@@ -141,9 +148,29 @@ class EMAStrategy:
         Returns:
             Tuple of (fast_period, slow_period)
         """
+        # STRICT ACCESS
         sym_config = self.symbol_settings.get(symbol, {})
-        fast = sym_config.get('fast_ema', self.fast_period)
-        slow = sym_config.get('slow_ema', self.slow_period)
+        # Note: If symbol not in settings, we fall back to GLOBAL defaults (self.fast_period),
+        # which were strictly validated in __init__.
+        # But if symbol IS in settings, we expect 'fast_ema' and 'slow_ema' to be there?
+        # Logic: get() returns None if missing? No, user wants STRICT.
+        # If 'XAUUSD' is in config, it MUST have 'fast_ema'.
+        
+        if symbol in self.symbol_settings:
+            try:
+                fast = sym_config['fast_ema']
+                slow = sym_config['slow_ema']
+            except KeyError as e:
+                logger.error(f"[{symbol}] STRICT CONFIG ERROR: Missing EMA setting {e}")
+                # Fallback to global? Or Raise?
+                # User wants strict.
+                raise ValueError(f"[{symbol}] Missing {e} in config")
+        else:
+             # Symbol not in config at all? Use global defaults (which are valid).
+             fast = self.fast_period
+             slow = self.slow_period
+             
+        return fast, slow
         return fast, slow
     
     def _load_config(self, config_path: Path) -> Dict:

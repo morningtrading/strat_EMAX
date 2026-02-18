@@ -9,16 +9,24 @@ PURPOSE:
     - EMA strategy signal generation
     - Position management and execution
     - Telegram notifications
+    - Web Dashboard server
 
 INPUTS:
-    - Configuration from config/trading_config.json
-    - MT5 terminal running under Wine
+    - Configuration: config/trading_config.json
+    - Environment: MetaTrader 5 terminal running under Wine
+    - System: Linux OS with Python 3.10+
 
 OUTPUTS:
-    - Trading signals and executions
-    - Web dashboard on configured port
-    - Telegram notifications
+    - Execution: Trades placed on MT5 terminal
+    - UI: Web dashboard at http://localhost:8080 (configurable)
+    - Logs: trading_engine.log
+    - Alerts: Telegram notifications
 
+INSTALLATION:
+    1. Install Wine and MT5 (see README.md)
+    2. Install dependencies: wine pip install -r requirements.txt
+    3. Configure: config/trading_config.json
+    
 HOW TO START:
     # Start MT5 terminal first
     wine terminal64.exe
@@ -27,15 +35,24 @@ HOW TO START:
     wine python main.py
 
 SEQUENCE:
-    1. Load configuration
+    1. Load and validate configuration
     2. Connect to MT5
     3. Initialize strategy and position manager
     4. Start web dashboard
     5. Main loop: fetch data -> analyze -> execute
 
+CONTEXT:
+    This is the central controller. It depends on:
+    - core/mt5_connector.py
+    - core/ema_strategy.py
+    - core/position_manager.py
+    - config/trading_config.json
+
+VERSION HISTORY:
+    1.1.0 (2026-01-28) - Added config validation, standardized headers, and constants
+    1.0.0 (2026-01-22) - Initial release
+
 AUTHOR: EMAX Trading Engine
-VERSION: 1.0.0
-LAST UPDATED: 2026-01-22
 ================================================================================
 """
 
@@ -57,14 +74,39 @@ from core.mt5_connector import MT5Connector
 from core.ema_strategy import EMAStrategy, SignalType
 from core.position_manager import PositionManager
 from core.telegram_notifier import TelegramNotifier
+from config.validate_config import validate_config
+
+# Load config early for logging setup
+CONFIG_PATH = Path(__file__).parent / 'config' / 'trading_config.json'
+INSTANCE_ID = "EMAX"
+try:
+    with open(CONFIG_PATH, 'r') as f:
+        _cfg = json.load(f)
+        INSTANCE_ID = _cfg.get('telegram', {}).get('message_prefix', 'EMAX')
+        if not INSTANCE_ID:
+            INSTANCE_ID = Path(__file__).parent.name
+except Exception:
+    pass
 
 # Configure logging
+log_file = Path(__file__).parent / 'trading_engine.log'
+
+# Redirect stdout/stderr to file to prevent WinError 6 in detached Wine mode
+# and capture all output including print() statements
+try:
+    # Open file in append mode, buffered
+    log_fp = open(str(log_file), 'a', buffering=1, encoding='utf-8')
+    sys.stdout = log_fp
+    sys.stderr = log_fp
+except Exception as e:
+    # If we can't open log file, we're in trouble, but try to continue
+    pass
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format=f'%(asctime)s - [{INSTANCE_ID}] - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('trading_engine.log')
+        logging.StreamHandler(sys.stdout) # Now safe because stdout is a file
     ]
 )
 logger = logging.getLogger('TradingEngine')
@@ -94,6 +136,14 @@ class TradingEngine:
         # Load configuration
         if config_path is None:
             config_path = Path(__file__).parent / 'config' / 'trading_config.json'
+        
+        # Validate Config
+        if not validate_config(str(config_path)):
+            logger.critical("Config validation failed! See logs for details.")
+            if "--force" not in sys.argv:
+                logger.critical("Startup aborted due to invalid config.")
+                sys.exit(1)
+        
         self.config_path = config_path
         self.config = self._load_config(config_path)
         
@@ -130,7 +180,8 @@ class TradingEngine:
                 'enabled_symbols': self.enabled_symbols,
                 'running': False,
                 'uptime': 0
-            }
+            },
+            'last_cycle_stats': {}
         }
         self.market_overview = {}
         self.dashboard_lock = threading.Lock()
@@ -287,7 +338,7 @@ class TradingEngine:
             # Recent deals/orders (Session only)
             recent_deals = self.mt5.get_history_deals(days=1)
             cutoff = self.stats_reset_time.isoformat()
-            self.dashboard_data['orders_history'] = [d for d in recent_deals if d['time'] >= cutoff][-20:]
+            self.dashboard_data['orders_history'] = [d for d in recent_deals if d['time'] >= cutoff][-100:]
             
             # Strategy and manager status
             self.dashboard_data['strategy_status'] = self.strategy.get_strategy_status()
@@ -296,11 +347,20 @@ class TradingEngine:
             # Daily stats
             self.dashboard_data['daily_stats'] = self.position_manager.get_daily_stats()
             
+            # Session Stats (Since bot start)
+            self.dashboard_data['session_stats'] = self.position_manager.get_stats_since(self.start_time)
+            
             # Engine status
             # Get timeframe from first enabled symbol's config
-            first_symbol = self.enabled_symbols[0] if self.enabled_symbols else 'XAUUSD'
-            symbol_settings = self.config.get('symbols', {}).get('settings', {}).get(first_symbol, {})
-            current_timeframe = symbol_settings.get('timeframe', 'M5')
+            # STRICT CONFIG ACCESS
+            try:
+                first_symbol = self.enabled_symbols[0] if self.enabled_symbols else 'XAUUSD'
+                symbol_settings = self.config['symbols']['settings'][first_symbol]
+                current_timeframe = symbol_settings['timeframe']
+            except KeyError as e:
+                logger.error(f"STRICT CONFIG ERROR: Missing key {e} in symbols/settings")
+                # We can't proceed without knowing the timeframe for the dashboard
+                current_timeframe = "ERROR"
             
             self.dashboard_data['engine_status'] = {
                 'trading_enabled': self.trading_enabled,
@@ -329,8 +389,13 @@ class TradingEngine:
             current_position = "LONG" if positions[0]['type'] == "BUY" else "SHORT"
         
         # Get price data with enough bars for EMA calculation
-        symbol_config = self.config.get('symbols', {}).get('settings', {}).get(symbol, {})
-        timeframe = symbol_config.get('timeframe', 'M5')
+        # Get price data with enough bars for EMA calculation
+        try:
+             symbol_config = self.config['symbols']['settings'][symbol]
+             timeframe = symbol_config['timeframe']
+        except KeyError as e:
+             logger.error(f"[{symbol}] STRICT CONFIG ERROR: Missing '{e}' setting")
+             return
         
         bars = self.mt5.get_rates(symbol, timeframe, count=100)
         if not bars:
@@ -371,12 +436,26 @@ class TradingEngine:
             # Get per-symbol EMA settings
             sym_fast, sym_slow = self.strategy.get_symbol_ema_settings(symbol)
             
-            # Get symbol-specific timeframe from config
-            sym_config = self.config.get('symbols', {}).get('settings', {}).get(symbol, {})
-            sym_timeframe = sym_config.get('timeframe', 'M5')
+            # Get symbol-specific timeframe from config (Strict)
+            try:
+                sym_config = self.config['symbols']['settings'][symbol]
+                sym_timeframe = sym_config['timeframe']
+            except KeyError:
+                sym_timeframe = "CONFIG_ERROR" # Will show in dashboard
+            
+            # Derive Category from Path
+            path = symbol_info.get('path', '').lower()
+            category = "Other"
+            if "crypto" in path: category = "Crypto"
+            elif "indices" in path or "index" in path: category = "Indices"
+            elif "forex" in path: category = "Forex"
+            elif "xau" in symbol.lower() or "xag" in symbol.lower(): category = "Metals"
+            elif "metals" in path or "commod" in path or "energy" in path or "gold" in path or "silver" in path or "oil" in path: category = "Commodities"
+            elif "stock" in path or "share" in path: category = "Stocks"
             
             with self.dashboard_lock:
                 self.market_overview[symbol] = {
+                    'category': category,
                     'price': bars[-1]['close'],
                     'trend': analysis['trend'],
                     'momentum': analysis['momentum'],
@@ -399,10 +478,17 @@ class TradingEngine:
         if not self.trading_enabled or self.paused:
             return
 
-        # Check if trading is frozen (news events, high volatility, etc.)
         if self.position_manager.is_trading_frozen():
             logger.debug(f"[{symbol}] Trading frozen - skipping signal. Reason: {self.position_manager.freeze_reason}")
-            return
+            # Still manage open positions!
+            if positions:
+                 return self.position_manager.manage_position(positions[0])
+            return {'sl': 0, 'tp': 0}
+            
+        # Manage existing position even if no signal or trading enabled
+        mods = {'sl': 0, 'tp': 0}
+        if positions:
+            mods = self.position_manager.manage_position(positions[0])
 
         if signal.action == SignalType.BUY:
             result = self.position_manager.open_position(symbol, "LONG", signal.reason)
@@ -423,6 +509,8 @@ class TradingEngine:
                     symbol_settings = self.config.get('symbols', {}).get('settings', {}).get(symbol, {})
                     fast_period = symbol_settings.get('fast_ema', 9)
                     slow_period = symbol_settings.get('slow_ema', 41)
+                    # fast_period = 9  # TEST OVERRIDE: Force 9
+                    # slow_period = 35 # TEST OVERRIDE: Force 35
                     from core.ema_strategy import EMAStrategy
                     fast_ema = EMAStrategy.calculate_ema(bars['close'], fast_period)[-1]
                     slow_ema = EMAStrategy.calculate_ema(bars['close'], slow_period)[-1]
@@ -458,6 +546,8 @@ class TradingEngine:
                     symbol_settings = self.config.get('symbols', {}).get('settings', {}).get(symbol, {})
                     fast_period = symbol_settings.get('fast_ema', 9)
                     slow_period = symbol_settings.get('slow_ema', 41)
+                    # fast_period = 9  # TEST OVERRIDE: Force 9
+                    # slow_period = 35 # TEST OVERRIDE: Force 35
                     from core.ema_strategy import EMAStrategy
                     fast_ema = EMAStrategy.calculate_ema(bars['close'], fast_period)[-1]
                     slow_ema = EMAStrategy.calculate_ema(bars['close'], slow_period)[-1]
@@ -477,7 +567,12 @@ class TradingEngine:
         elif signal.action in [SignalType.EXIT_LONG, SignalType.EXIT_SHORT]:
             if positions:
                 pos = positions[0]
-                entry_time = pos.get('time', 0)
+                entry_time_iso = pos.get('time')
+                try:
+                    entry_time = datetime.fromisoformat(entry_time_iso).timestamp()
+                except:
+                   entry_time = datetime.now().timestamp()
+                
                 current_time = datetime.now().timestamp()
                 hold_seconds = int(current_time - entry_time)
                 hold_time = f"{hold_seconds // 3600}h {(hold_seconds % 3600) // 60}m"
@@ -505,6 +600,8 @@ class TradingEngine:
                         equity=account.get('equity'),
                         total_pnl=total_pnl
                     )
+
+        return mods
     
     def run(self, dashboard_only: bool = False):
         """
@@ -527,17 +624,70 @@ class TradingEngine:
         
         try:
             while self.running:
+                # Cycle Stats Initialization
+                cycle_start = datetime.now()
+                cycle_stats = {
+                    'symbols_scanned': 0,
+                    'markets_open': 0,
+                    'markets_closed': 0,
+                    'sl_modifications': 0,
+                    'tp_modifications': 0,
+                    'bull_count': 0,
+                    'bear_count': 0,
+                    'wait_count': 0,
+                    'open_positions': 0,
+                    'errors': 0,
+                    'last_error': None,
+                    'duration_ms': 0
+                }
+                
                 # Update dashboard data
                 self._update_dashboard_data()
                 
                 # Process each enabled symbol
                 if not dashboard_only:
+                    # Count open positions once
+                    cycle_stats['open_positions'] = len(self.dashboard_data.get('positions', []))
+
                     for symbol in self.enabled_symbols:
                         try:
-                            self._process_symbol(symbol)
+                            # Check market status
+                            info = self.mt5.get_symbol_info(symbol)
+                            if info and info.get('trade_allowed'):
+                                cycle_stats['markets_open'] += 1
+                            else:
+                                cycle_stats['markets_closed'] += 1
+                                
+                            # Track modifications by getting return value
+                            mods = self._process_symbol(symbol)
+                            if isinstance(mods, dict):
+                                cycle_stats['sl_modifications'] += mods.get('sl', 0)
+                                cycle_stats['tp_modifications'] += mods.get('tp', 0)
+                            
+                            cycle_stats['symbols_scanned'] += 1
+                            
+                            # Track Trend from Market Overview
+                            with self.dashboard_lock:
+                                trend = self.market_overview.get(symbol, {}).get('trend', 'WAIT').upper()
+                            
+                            if 'BULL' in trend: cycle_stats['bull_count'] += 1
+                            elif 'BEAR' in trend: cycle_stats['bear_count'] += 1
+                            else: cycle_stats['wait_count'] += 1
+                            
                         except Exception as e:
                             logger.error(f"Error processing {symbol}: {e}")
+                            cycle_stats['errors'] += 1
+                            cycle_stats['last_error'] = f"[{symbol}] {str(e)}"
                             self.telegram.notify_error("Processing Error", str(e), symbol)
+                            
+                # Calculate duration
+                cycle_end = datetime.now()
+                duration = (cycle_end - cycle_start).total_seconds() * 1000
+                cycle_stats['duration_ms'] = int(duration)
+                
+                # Update dashboard with last cycle stats
+                with self.dashboard_lock:
+                    self.dashboard_data['last_cycle_stats'] = cycle_stats
                 
                 # Wait before next cycle
                 time.sleep(self.price_refresh_ms / 1000)
@@ -573,7 +723,7 @@ class TradingEngine:
 def main():
     """Main entry point"""
     print("="*60)
-    print("   EMAX Trading Engine")
+    print(f"   EMAX Trading Engine [{INSTANCE_ID}]")
     print("   EMA Crossover Strategy for MT5")
     print("="*60)
     

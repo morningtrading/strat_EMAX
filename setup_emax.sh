@@ -69,8 +69,21 @@ echo -e "${GREEN}✓ Install to: $INSTALL_DIR${NC}"
 print_step 1 $TOTAL_STEPS "Verifying system..."
 if [ -f /etc/os-release ]; then
     . /etc/os-release
-    echo -e "${GREEN}✓ OS: Ubuntu $VERSION_ID ($VERSION_CODENAME)${NC}"
-    test_step "System detection" "[ '$VERSION_ID' = '24.04' ]"
+    echo -e "${GREEN}✓ OS: $NAME $VERSION_ID ($VERSION_CODENAME)${NC}"
+    
+    # Determine correct codename for repositories
+    # Linux Mint establishes UBUNTU_CODENAME in os-release
+    REPO_CODENAME="${UBUNTU_CODENAME:-$VERSION_CODENAME}"
+    
+    if [ "$ID" = "ubuntu" ] && [ "$VERSION_ID" = "24.04" ]; then
+        echo -e "${GREEN}✓ Supported Ubuntu version detected${NC}"
+    elif [ "$ID" = "linuxmint" ]; then
+         echo -e "${GREEN}✓ Linux Mint detected (Base: $REPO_CODENAME)${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Warning: Untested OS ($NAME $VERSION_ID). Proceeding with caution...${NC}"
+        echo -e "${YELLOW}   Using repository codename: $REPO_CODENAME${NC}"
+        sleep 3
+    fi
 else
     echo -e "${RED}❌ Cannot detect OS${NC}"
     exit 1
@@ -84,7 +97,7 @@ if ! command -v wine &> /dev/null; then
     sudo dpkg --add-architecture i386
     sudo mkdir -pm755 /etc/apt/keyrings
     sudo wget -q -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
-    sudo wget -q -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/${VERSION_CODENAME}/winehq-${VERSION_CODENAME}.sources
+    sudo wget -q -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/${REPO_CODENAME}/winehq-${REPO_CODENAME}.sources
     sudo apt-get update -qq
     sudo apt-get install -y --install-recommends winehq-stable xvfb xserver-xephyr git curl wget
 else

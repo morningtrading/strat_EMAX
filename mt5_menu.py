@@ -7,7 +7,20 @@ Provides account info, position details, and trade execution
 import MetaTrader5 as mt5
 import sys
 import json
+import os
 from datetime import datetime
+from pathlib import Path
+
+# Load config
+try:
+    CONFIG_PATH = Path(__file__).parent / 'config' / 'trading_config.json'
+    with open(CONFIG_PATH, 'r') as f:
+        CONFIG = json.load(f)
+    MAGIC_NUMBER = CONFIG.get('magic_number', 123456)
+    print(f"Loaded config: Magic Number {MAGIC_NUMBER}")
+except Exception as e:
+    print(f"Warning: Could not load config ({e}). Using default Magic 123456")
+    MAGIC_NUMBER = 123456
 
 
 def init_mt5():
@@ -51,6 +64,9 @@ def get_positions():
         return
     
     positions = mt5.positions_get()
+    # Filter by Magic Number
+    if positions:
+        positions = [p for p in positions if p.magic == MAGIC_NUMBER]
     
     print("\n" + "=" * 70)
     print("📊 OPEN POSITIONS")
@@ -95,6 +111,9 @@ def close_all_positions():
         return False
     
     positions = mt5.positions_get()
+    # Filter by Magic Number
+    if positions:
+        positions = [p for p in positions if p.magic == MAGIC_NUMBER]
     
     if positions is None or len(positions) == 0:
         print("✅ No positions to close")
@@ -135,7 +154,7 @@ def close_all_positions():
             "position": ticket,
             "price": price,
             "deviation": 20,
-            "magic": 0,
+            "magic": MAGIC_NUMBER,
             "comment": "Close by menu",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
@@ -163,6 +182,9 @@ def verify_closed():
         return
     
     positions = mt5.positions_get()
+    # Filter by Magic Number
+    if positions:
+        positions = [p for p in positions if p.magic == MAGIC_NUMBER]
     
     print("\n" + "=" * 50)
     print("🔍 VERIFICATION")

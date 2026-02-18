@@ -101,7 +101,8 @@ DASHBOARD_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMAX Trading Dashboard</title>
+    <title>EMAX Dashboard [{self.instance_id}]</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <style>
         * {
             margin: 0;
@@ -111,7 +112,7 @@ DASHBOARD_HTML = """
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background: linear-gradient(135deg, #020024 0%, #090979 35%, #00d4ff 100%);
             min-height: 100vh;
             color: #e4e4e4;
             padding: 20px;
@@ -132,6 +133,16 @@ DASHBOARD_HTML = """
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 10px;
+        }
+        
+        .instance-badge {
+            font-size: 0.4em;
+            vertical-align: middle;
+            background: rgba(0, 212, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 212, 255, 0.4);
+            -webkit-text-fill-color: #00d4ff;
         }
         
         .header .status {
@@ -380,7 +391,7 @@ DASHBOARD_HTML = """
 </head>
 <body>
     <div class="header">
-        <h1>📈 EMAX Trading Dashboard</h1>
+        <h1>{self.instance_id} <span style="font-size: 0.5em; color: #ccc; font-weight: normal;">Trading Dashboard</span></h1>
         <div class="status">
             <span class="status-indicator" id="connection-indicator"></span>
             <span id="connection-status">Connecting...</span>
@@ -388,7 +399,7 @@ DASHBOARD_HTML = """
             | Uptime: <span id="uptime">0s</span>
         </div>
         <div class="status" style="margin-top: 8px; font-size: 0.95em;">
-            ⏱️ Next refresh: <span id="countdown" style="color: #00ff88; font-weight: bold;">5</span>s
+            ⏱️ Next refresh: <span id="countdown" style="color: #00ff88; font-weight: bold;">35</span>s
             | Last check: <span id="last-check-status" style="color: #00ff88;">OK</span>
             | <span id="last-bar-time" style="color: #888;">-</span>
         </div>
@@ -432,6 +443,52 @@ DASHBOARD_HTML = """
     </div>
     
     <div class="grid">
+        <!-- Cycle Status -->
+        <div class="card">
+            <h2><span class="icon">🔄</span> Cycle Status <span style="font-size:0.6em; color:#666; font-weight:normal; margin-left:auto" id="cycle-duration">0ms</span></h2>
+            
+            <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <!-- Row 1: Scan & Positions -->
+                <div class="stat-item">
+                    <div class="stat-label">Scanned</div>
+                    <div class="stat-value"><span id="cycle-scanned">0</span> <span style="font-size:0.5em; color:#888;">(<span id="cycle-open" style="color:#00ff88">0</span>/<span id="cycle-closed" style="color:#ff4444">0</span>)</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Positions</div>
+                    <div class="stat-value" id="cycle-positions">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Errors</div>
+                    <div class="stat-value" id="cycle-errors" style="color: #888;">0</div>
+                </div>
+
+                <!-- Row 2: Trends -->
+                <div class="stat-item" style="grid-column: span 3;">
+                    <div class="stat-label">Trend Analysis</div>
+                    <div style="display: flex; gap: 15px; align-items: center; margin-top: 5px;">
+                        <span style="color:#00ff88">BULL: <b id="cycle-bull">0</b></span>
+                        <span style="color:#ff4444">BEAR: <b id="cycle-bear">0</b></span>
+                        <span style="color:#ffaa00">WAIT: <b id="cycle-wait">0</b></span>
+                    </div>
+                </div>
+
+                <!-- Row 3: Modifications -->
+                <div class="stat-item" style="grid-column: span 3;">
+                     <div class="stat-label">Modifications: <b id="cycle-mods-total" style="color:#fff">0</b></div>
+                     <div style="display: flex; gap: 15px; align-items: center; margin-top: 5px; font-size: 0.9em;">
+                        <span>SL: <b id="cycle-mods-sl" style="color:#00d4ff">0</b></span>
+                        <span>TP: <b id="cycle-mods-tp" style="color:#00d4ff">0</b></span>
+                     </div>
+                </div>
+
+                <!-- Row 4: Last Error -->
+                <div id="cycle-last-error" class="stat-item" style="grid-column: span 3; display: none; background: rgba(255, 68, 68, 0.1); border: 1px solid rgba(255, 68, 68, 0.3);">
+                    <div class="stat-label" style="color:#ff4444">Last Exception</div>
+                    <div id="cycle-error-msg" style="font-size: 0.85em; color: #ffcccc; margin-top: 5px; word-break: break-all;">-</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Account Info -->
         <div class="card">
             <h2><span class="icon">💰</span> Account</h2>
@@ -455,25 +512,42 @@ DASHBOARD_HTML = """
             </div>
         </div>
         
-        <!-- Daily Stats -->
+        <!-- Performance Stats -->
         <div class="card">
-            <h2><span class="icon">📊</span> Daily Stats</h2>
-            <div class="stat-grid">
+            <h2><span class="icon">📊</span> Performance</h2>
+            <div style="margin-bottom: 5px; font-weight: bold; color: #888; font-size: 0.8em;">DAILY (Since 00:00)</div>
+            <div class="stat-grid" style="margin-bottom: 15px;">
                 <div class="stat-item">
-                    <div class="stat-label">Today's P&L</div>
+                    <div class="stat-label">today's P&L</div>
                     <div class="stat-value" id="daily-pnl">$0.00</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">Today's Trades</div>
                     <div class="stat-value" id="daily-trades">0</div>
                 </div>
-                <div class="stat-item">
+                 <div class="stat-item">
                     <div class="stat-label">Session Status</div>
                     <div class="stat-value" id="session-status">-</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">Daily Loss Limit</div>
                     <div class="stat-value" id="loss-limit">0%</div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 5px; font-weight: bold; color: #888; font-size: 0.8em;">SESSION (Since Start)</div>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Total P&L</div>
+                    <div class="stat-value" id="session-pnl">$0.00</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Total Trades</div>
+                    <div class="stat-value" id="session-trades">0</div>
+                </div>
+                 <div class="stat-item">
+                    <div class="stat-label">Uptime</div>
+                    <div class="stat-value" id="session-uptime">-</div>
                 </div>
             </div>
         </div>
@@ -558,10 +632,11 @@ DASHBOARD_HTML = """
     
     <!-- Order History -->
     <div class="card" style="margin-top: 20px;">
-        <h2><span class="icon">📜</span> Recent Orders (Last 20)</h2>
+        <h2><span class="icon">📜</span> Recent Orders (Last 100)</h2>
         <table class="positions-table">
             <thead>
                 <tr>
+                    <th>Ticket</th>
                     <th>Time</th>
                     <th>Symbol</th>
                     <th>Type</th>
@@ -571,7 +646,7 @@ DASHBOARD_HTML = """
                 </tr>
             </thead>
             <tbody id="history-body">
-                <tr><td colspan="6" style="text-align: center; color: #666;">No recent orders</td></tr>
+                <tr><td colspan="7" style="text-align: center; color: #666;">No recent orders</td></tr>
             </tbody>
         </table>
     </div>
@@ -579,15 +654,15 @@ DASHBOARD_HTML = """
     <div class="refresh-time">
         Last updated: <span id="last-update">-</span>
         | Symbol: <span id="active-symbol" style="color: #00d4ff;">XAGUSD</span>
-        | Refresh: <span id="refresh-rate">5</span>s
+        | Refresh: <span id="refresh-rate">35</span>s
     </div>
     
     <script>
         const API_BASE = '';
         let refreshInterval;
         let countdownInterval;
-        let countdown = 5;
-        const REFRESH_SECONDS = 5;
+        let countdown = 35;
+        const REFRESH_SECONDS = 35;
         
         function updateCountdown() {
             countdown--;
@@ -627,6 +702,38 @@ DASHBOARD_HTML = """
             document.getElementById('connection-status').textContent = 
                 connected ? 'Connected' : 'Disconnected';
             
+            // Cycle Stats
+            const cycle = data.last_cycle_stats || {};
+            document.getElementById('cycle-duration').textContent = (cycle.duration_ms || 0) + 'ms';
+            document.getElementById('cycle-scanned').textContent = cycle.symbols_scanned || 0;
+            document.getElementById('cycle-open').textContent = cycle.markets_open || 0;
+            document.getElementById('cycle-closed').textContent = cycle.markets_closed || 0;
+            document.getElementById('cycle-errors').textContent = cycle.errors || 0;
+            
+            // New Fields
+            document.getElementById('cycle-positions').textContent = cycle.open_positions || 0;
+            document.getElementById('cycle-bull').textContent = cycle.bull_count || 0;
+            document.getElementById('cycle-bear').textContent = cycle.bear_count || 0;
+            document.getElementById('cycle-wait').textContent = cycle.wait_count || 0;
+            
+            const slMods = cycle.sl_modifications || 0;
+            const tpMods = cycle.tp_modifications || 0;
+            document.getElementById('cycle-mods-total').textContent = slMods + tpMods;
+            document.getElementById('cycle-mods-sl').textContent = slMods;
+            document.getElementById('cycle-mods-tp').textContent = tpMods;
+            
+            // Error Message
+            const errorMsg = cycle.last_error;
+            const errorContainer = document.getElementById('cycle-last-error');
+            const errorText = document.getElementById('cycle-error-msg');
+            
+            if (errorMsg && cycle.errors > 0) {
+                errorContainer.style.display = 'block';
+                errorText.textContent = errorMsg;
+            } else {
+                errorContainer.style.display = 'none';
+            }
+            
             // Uptime
             document.getElementById('uptime').textContent = 
                 formatUptime(data.engine_status?.uptime || 0);
@@ -649,6 +756,17 @@ DASHBOARD_HTML = """
             dailyPnlEl.textContent = '$' + dailyPnl.toFixed(2);
             dailyPnlEl.className = 'stat-value ' + (dailyPnl >= 0 ? 'positive' : 'negative');
             document.getElementById('daily-trades').textContent = daily.daily_trades || 0;
+            
+            // Session Stats
+            const session = data.session_stats || {};
+            const sessionPnl = session.pnl || 0;
+            const sessionPnlEl = document.getElementById('session-pnl');
+            if (sessionPnlEl) {
+                sessionPnlEl.textContent = '$' + sessionPnl.toFixed(2);
+                sessionPnlEl.className = 'stat-value ' + (sessionPnl >= 0 ? 'positive' : 'negative');
+                document.getElementById('session-trades').textContent = session.trades || 0;
+                document.getElementById('session-uptime').textContent = formatUptime(data.engine_status?.uptime || 0);
+            }
             
             // Manager status
             const manager = data.manager_status || {};
@@ -726,47 +844,63 @@ DASHBOARD_HTML = """
         
         function updateMarketStatus(marketData) {
             const tbody = document.getElementById('market-status-body');
-            const symbols = Object.keys(marketData).sort();
+            const symbols = Object.keys(marketData);
             
             if (symbols.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #666;">No market data yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #666;">No market data yet</td></tr>';
                 return;
             }
+
+            // Group by category
+            const categories = {};
+            symbols.forEach(sym => {
+                const cat = marketData[sym].category || 'Other';
+                if (!categories[cat]) categories[cat] = [];
+                categories[cat].push(sym);
+            });
+
+            // Define category order
+            const catOrder = ['Crypto', 'Metals', 'Stocks', 'Indices', 'Forex', 'Commodities', 'Other'];
             
-            tbody.innerHTML = symbols.map(sym => {
-                const d = marketData[sym];
-                if (!d) return '';
-                
-                const trendClass = d.trend === 'BULL' ? 'trend-bull' : (d.trend === 'BEAR' ? 'trend-bear' : 'trend-wait');
-                const trendIcon = d.trend === 'BULL' ? '🟢 BULL' : (d.trend === 'BEAR' ? '🔴 BEAR' : '⏳ WAIT');
-                
-                let momIcon = '➡️';
-                if (d.momentum === 'INCREASING') momIcon = '↗️';
-                if (d.momentum === 'DECREASING') momIcon = '↘️';
-                
-                // Market status badge
-                const marketStatus = d.trade_allowed ? 
-                    '<span style="color: #00ff88; font-weight: bold;">🟢 OPEN</span>' : 
-                    '<span style="color: #ff4444; font-weight: bold;">🔴 CLOSED</span>';
-                
-                return `
-                    <tr>
-                        <td style="font-weight: bold; color: #00d4ff;">${sym}</td>
-                        <td>${marketStatus}</td>
-                        <td style="color: #00ff88; font-size: 0.85em;">${d.timeframe || 'M5'}</td>
-                        <td style="color: #ffa500;">${d.fast_ema || 9}/${d.slow_ema || 41}</td>
-                        <td>${d.price ? d.price.toFixed(2) : '-'}</td>
-                        <td style="color: #888;">${d.min_volume || 0.01}</td>
-                        <td><span class="trend-badge ${trendClass}">${trendIcon}</span></td>
-                        <td>
-                            ${momIcon} ${d.momentum}
-                            <div style="font-size: 0.8em; color: #666;">
-                                (Diff: ${d.diff ? (d.diff > 0 ? '+' : '') + d.diff.toFixed(5) : '0.00'})
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            let html = '';
+            
+            catOrder.forEach(cat => {
+                if (categories[cat]) {
+                    // Add Category Header
+                    html += `<tr style="background: rgba(255, 255, 255, 0.1);"><td colspan="8" style="padding: 10px; font-weight: bold; color: #fff; letter-spacing: 1px;">${cat.toUpperCase()}</td></tr>`;
+                    
+                    // Sort symbols within category
+                    categories[cat].sort();
+                    
+                    categories[cat].forEach(sym => {
+                        const d = marketData[sym];
+                        if (!d) return;
+                        
+                        const trendClass = d.trend === 'BULL' ? 'trend-bull' : (d.trend === 'BEAR' ? 'trend-bear' : 'trend-wait');
+                        const trendIcon = d.trend === 'BULL' ? '🟢 BULL' : (d.trend === 'BEAR' ? '🔴 BEAR' : '⏳ WAIT');
+                        
+                        // Market status badge
+                        const marketStatus = d.trade_allowed ? 
+                            '<span style="color: #00ff88; font-weight: bold;">🟢 OPEN</span>' : 
+                            '<span style="color: #ff4444; font-weight: bold;">🔴 CLOSED</span>';
+                        
+                        html += `
+                            <tr>
+                                <td style="font-weight: bold; color: #00d4ff; padding-left: 20px;">${sym}</td>
+                                <td>${marketStatus}</td>
+                                <td style="color: #00ff88; font-size: 0.85em;">${d.timeframe || 'M5'}</td>
+                                <td style="color: #ffa500;">${d.fast_ema || 9}/${d.slow_ema || 41}</td>
+                                <td>${d.price ? d.price.toFixed(2) : '-'}</td>
+                                <td style="color: #888;">${d.min_volume || 0.01}</td>
+                                <td><span class="trend-badge ${trendClass}">${trendIcon}</span></td>
+                                <td>Momentum: ${d.momentum}</td>
+                            </tr>
+                        `;
+                    });
+                }
+            });
+            
+            tbody.innerHTML = html;
         }
         
         function updatePositionsTable(positions) {
@@ -796,12 +930,13 @@ DASHBOARD_HTML = """
             const tbody = document.getElementById('history-body');
             
             if (orders.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666;">No recent orders</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">No recent orders</td></tr>';
                 return;
             }
             
-            tbody.innerHTML = orders.slice(-20).reverse().map(o => `
+            tbody.innerHTML = orders.slice(-100).reverse().map(o => `
                 <tr>
+                    <td style="color: #666; font-size: 0.9em;">${o.ticket}</td>
                     <td>${o.time?.split('T')[1]?.split('.')[0] || o.time}</td>
                     <td>${o.symbol}</td>
                     <td>${o.type}</td>
@@ -896,6 +1031,36 @@ class WebDashboard:
         self.app = None
         self.server_thread = None
         
+        # Load Instance ID
+        self.instance_id = "EMAX"
+        try:
+            import os
+            # Default to directory name if possible
+            current_dir_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            # value-add: strip common prefixes if falling back to dir name
+            if current_dir_name.startswith("start_"):
+                current_dir_name = current_dir_name.replace("start_", "")
+            
+            config_id = None
+            if self.engine:
+                config_id = self.engine.config.get('telegram', {}).get('message_prefix')
+            else:
+                # Standalone mode - load from file
+                import json
+                config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'trading_config.json')
+                with open(config_path, 'r') as f:
+                    cfg = json.load(f)
+                    config_id = cfg.get('telegram', {}).get('message_prefix')
+            
+            # Use config ID if valid, otherwise directory name
+            if config_id and config_id != "EMAX":
+                self.instance_id = config_id
+            else:
+                self.instance_id = current_dir_name
+                
+        except Exception:
+            pass
+        
         if FLASK_AVAILABLE:
             self._create_app()
         else:
@@ -914,7 +1079,9 @@ class WebDashboard:
         @self.app.route('/')
         def index():
             logger.debug("[API] Dashboard page requested")
-            return render_template_string(DASHBOARD_HTML)
+            # Manually interpolate instance_id because DASHBOARD_HTML is static
+            html_content = DASHBOARD_HTML.replace('{self.instance_id}', self.instance_id)
+            return render_template_string(html_content)
         
         @self.app.route('/api/status')
         def api_status():
@@ -1013,10 +1180,24 @@ class WebDashboard:
 
 def run_standalone():
     """Run dashboard standalone for testing"""
-    print("Starting Web Dashboard in standalone mode...")
-    print(f"Open http://localhost:8080 in your browser")
+    import json
+    import os
     
-    dashboard = WebDashboard(trading_engine=None, port=8080)
+    print("Starting Web Dashboard in standalone mode...")
+    
+    # Load port from config
+    try:
+        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'trading_config.json')
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        port = config.get('dashboard', {}).get('web_port', 8080)
+    except Exception as e:
+        print(f"Failed to load config, using default 8080: {e}")
+        port = 8080
+        
+    print(f"Open http://localhost:{port} in your browser")
+    
+    dashboard = WebDashboard(trading_engine=None, port=port)
     dashboard.start(threaded=False)
 
 

@@ -9,54 +9,41 @@ PURPOSE:
     execution.
 
 INPUTS:
-    - Trading signals from EMAStrategy
-    - Account info from MT5Connector
-    - Configuration from trading_config.json:
-        * max_margin_per_trade_usd: Maximum margin to use (default: $10)
-        * stop_loss.type: "fixed" or "atr"
-        * stop_loss.fixed_percent_of_margin: SL as % of margin (default: 50%)
-        * stop_loss.atr_multiplier: For ATR-based SL
+    - Signals from Strategy
+    - Market Data from MT5Connector
+    - Configuration (risk limits, position sizing rules)
 
 OUTPUTS:
-    - Executed trade results
-    - Position status updates
-    - Risk metrics
+    - Validated trade requests to MT5Connector
+    - Risk status updates (daily loss, margin usage)
+    - Trade history logs
 
-HOW TO INSTALL:
-    Part of EMAX trading engine. Dependencies: MT5Connector, EMAStrategy
+CONTEXT:
+    Middle layer between Strategy and Connector.
+    Enforces risk rules defined in constants.py and config validation.
 
-SEQUENCE IN OVERALL SYSTEM:
-    [EMA Strategy] -> [Position Manager] -> [MT5 Connector] -> [MT5 Terminal]
-                           ^                      |
-                           |                      v
-                    [Risk Manager] <-------- [Position Updates]
-
-    Position Manager receives signals, calculates position size and SL/TP,
-    then sends orders through MT5 Connector.
-
-OBJECTIVE:
-    Execute trades with proper position sizing and risk management, ensuring
-    margin limits and stop losses are respected.
-
-KEY FEATURES:
-    - Position sizing based on margin limits
-    - Fixed or ATR-based stop loss
-    - Spread checking before entry
-    - Session filtering
-    - Daily loss limit enforcement
+VERSION HISTORY:
+    1.1.0 (2026-01-28) - Added constants.py integration and robust headers
+    1.0.0 (2026-01-22) - Initial release
 
 AUTHOR: EMAX Trading Engine
-VERSION: 1.0.0
-LAST UPDATED: 2026-01-22
 ================================================================================
 """
 
 import json
 import logging
+import sys
+import os
+import csv
 from datetime import datetime, time as dtime
 from typing import Optional, Dict, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from core.constants import DEFAULTS, LIMITS
+
 
 logger = logging.getLogger('PositionManager')
 
@@ -111,6 +98,7 @@ class PositionManager:
         self.leverage = account_config.get('default_leverage', 1000)
         self.position_size_type = account_config.get('position_size_type', 'margin')
         self.fixed_volume = account_config.get('fixed_volume', 0.01)
+        self.magic_number = self.config.get('magic_number', 123456)
         
         # Stop loss config
         sl_config = self.config.get('stop_loss', {})
@@ -118,6 +106,13 @@ class PositionManager:
         self.sl_fixed_percent = sl_config.get('fixed_percent_of_margin', 50.0)
         self.sl_atr_multiplier = sl_config.get('atr_multiplier', 1.5)
         self.sl_atr_period = sl_config.get('atr_period', 14)
+        
+        # Trailing SL config
+        tsl_config = self.config.get('trailing_sl', {})
+        self.tsl_enabled = tsl_config.get('enabled', True)
+        self.tsl_activation = tsl_config.get('activation_points', 200)
+        self.tsl_distance = tsl_config.get('distance_points', 50)
+        self.tsl_step = tsl_config.get('step_points', 10)
         
         # Session filter config
         session_config = self.config.get('session_filter', {})
@@ -143,7 +138,79 @@ class PositionManager:
         self.freeze_reason = None
         self.freeze_timestamp = None
 
+
+        # Trade logging setup
+        self.log_dir = Path(__file__).parent.parent / 'data'
+        self.trade_log_path = self.log_dir / 'trade_history.csv'
+        self._init_trade_log()
+
         logger.info(f"PositionManager initialized: max_margin=${self.max_margin}, SL_type={self.sl_type}")
+    
+    def _init_trade_log(self):
+        """Initialize trade log CSV if not exists"""
+        try:
+            self.log_dir.mkdir(exist_ok=True)
+            
+            if not self.trade_log_path.exists():
+                with open(self.trade_log_path, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([
+                        'Timestamp', 'Ticket', 'Symbol', 'Action', 'Volume', 
+                        'Price', 'SL', 'TP', 'Profit', 'Swap', 'Commission', 
+                        'Margin_Used', 'Balance', 'Equity', 'Comment'
+                    ])
+                logger.info(f"Created new trade log at {self.trade_log_path}")
+        except Exception as e:
+            logger.error(f"Failed to init trade log: {e}")
+
+    def _log_trade_event(self, trade_result: TradeResult, account_info: Optional[Dict] = None, profit: float = 0.0):
+        """
+        Log trade event to CSV
+        
+        Args:
+            trade_result: TradeResult object
+            account_info: Optional account info dict
+            profit: Realized profit (for CLOSE events)
+        """
+        try:
+            timestamp = datetime.now().isoformat()
+            
+            balance = account_info.get('balance', 0) if account_info else 0
+            equity = account_info.get('equity', 0) if account_info else 0
+            
+            # Default values for missing fields
+            # profit is passed as argument
+            swap = 0.0
+            commission = 0.0
+            
+            # If closing, profit might be available via history check, but here we log the action immediately.
+            # Real profit comes from history deals, but we can log estimated or just the event.
+            # For OPEN events, profit is 0.
+            
+            row = [
+                timestamp,
+                trade_result.ticket,
+                trade_result.symbol,
+                trade_result.action,
+                trade_result.volume,
+                trade_result.price,
+                trade_result.sl,
+                trade_result.tp,
+                profit, # Realized profit passed explicitly
+                swap,   # swap
+                commission, # commission
+                trade_result.margin_used,
+                balance,
+                equity,
+                trade_result.error or "Success"
+            ]
+            
+            with open(self.trade_log_path, 'a', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(row)
+                
+        except Exception as e:
+            logger.error(f"Failed to log trade event: {e}")
     
     def _load_config(self, config_path: Path) -> Dict:
         """Load configuration from JSON file"""
@@ -298,7 +365,17 @@ class PositionManager:
         
         # CRITICAL: Ensure volume is at least MT5's minimum and properly rounded
         volume = max(volume, min_volume)
-        volume = round(volume / volume_step) * volume_step
+        
+        # Round to step with precision protection
+        if volume_step > 0:
+            volume = round(volume / volume_step) * volume_step
+            # Remove potential floating point artifacts (e.g. 0.300000000004)
+            decimals = 0
+            if volume_step < 1:
+                str_step = str(float(volume_step))
+                if '.' in str_step:
+                    decimals = len(str_step.split('.')[1])
+            volume = round(volume, decimals)
         
         # Safety floor check
         if volume < min_volume:
@@ -470,6 +547,7 @@ class PositionManager:
             order_type=order_type,
             volume=volume,
             sl=sl_price,
+            magic=self.magic_number,
             comment="EMAX"
         )
         
@@ -486,6 +564,13 @@ class PositionManager:
             
             self.trade_history.append(trade_result)
             logger.info(f"[{symbol}] Position opened: {direction} {volume} @ {entry_price}, SL={sl_price}, Ticket={result.get('ticket')}")
+            
+            # Log to CSV
+            try:
+                account = self.mt5.get_account_summary()
+                self._log_trade_event(trade_result, account)
+            except Exception as e:
+                logger.error(f"CSV Logging failed: {e}")
             
             return trade_result
         else:
@@ -542,6 +627,13 @@ class PositionManager:
             self.trade_history.append(trade_result)
             logger.info(f"[{symbol}] Position closed: {direction} {pos['volume']} PnL=${pos['profit']:.2f}")
             
+            # Log to CSV
+            try:
+                account = self.mt5.get_account_summary()
+                self._log_trade_event(trade_result, account, profit=pos.get('profit', 0.0))
+            except Exception as e:
+                logger.error(f"CSV Logging close failed: {e}")
+            
             return trade_result
         else:
             return TradeResult(
@@ -570,25 +662,78 @@ class PositionManager:
         return self.mt5.get_positions()
     
     def get_daily_stats(self) -> Dict:
-        """Get daily trading statistics"""
-        self._reset_daily_stats()
+        """Get daily trading statistics from Broker History (Robust to restarts)"""
+        # Define start of day
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Get actual deals from broker
+        daily_deals = self.mt5.get_history_deals(from_date=today_start)
+        
+        # Filter for this bot (Magic Number)
+        my_deals = [d for d in daily_deals if d.get('magic') == self.magic_number]
+        
+        # Calculate Real PnL & Trades
+        real_pnl = 0.0
+        closed_trades_count = 0
+        
+        for deal in my_deals:
+            # Sum all financial impacts (profit, swap, commission, fee)
+            real_pnl += deal.get('profit', 0.0)
+            real_pnl += deal.get('swap', 0.0)
+            real_pnl += deal.get('commission', 0.0)
+            real_pnl += deal.get('fee', 0.0)
+            
+            # Count exits (Entry Out or OutBy) as "Trades"
+            # entry: 0=IN, 1=OUT, 2=IN/OUT, 3=OUT_BY
+            if deal.get('entry') in [1, 3]:
+                closed_trades_count += 1
+        
+        # Update internal state with source of truth
+        self.daily_pnl = real_pnl
+        self.daily_trades = closed_trades_count # Reflect closed trades count
+        
+        # Update starting balance (optional, for consistency)
+        if self.starting_balance is None:
+             account = self.mt5.get_account_summary()
+             self.starting_balance = account.get('balance', 0)
         
         return {
             "date": datetime.now().date().isoformat(),
             "starting_balance": self.starting_balance,
             "daily_pnl": self.daily_pnl,
             "daily_trades": self.daily_trades,
-            "trade_history": [
-                {
-                    "action": t.action,
-                    "symbol": t.symbol,
-                    "volume": t.volume,
-                    "price": t.price,
-                    "success": t.success,
-                    "timestamp": t.timestamp
-                }
-                for t in self.trade_history[-20:]  # Last 20 trades
-            ]
+            "current_drawdown": 0.0,
+            "max_drawdown": 0.0
+        }
+        
+    def get_stats_since(self, start_time: datetime) -> Dict:
+        """Get trading statistics since specific time (Session Stats)"""
+        if not start_time:
+            return {"pnl": 0.0, "trades": 0}
+            
+        # Get actual deals from broker
+        session_deals = self.mt5.get_history_deals(from_date=start_time)
+        
+        # Filter for this bot
+        my_deals = [d for d in session_deals if d.get('magic') == self.magic_number]
+        
+        # Calculate PnL & Trades
+        pnl = 0.0
+        trades = 0
+        
+        for deal in my_deals:
+            pnl += deal.get('profit', 0.0)
+            pnl += deal.get('swap', 0.0)
+            pnl += deal.get('commission', 0.0)
+            pnl += deal.get('fee', 0.0)
+            
+            if deal.get('entry') in [1, 3]:
+                trades += 1
+                
+        return {
+            "pnl": pnl,
+            "trades": trades,
+            "start_time": start_time.isoformat()
         }
     
     def freeze_trading(self, reason: str = "Manual freeze"):
@@ -643,6 +788,112 @@ class PositionManager:
             "freeze_reason": self.freeze_reason,
             "freeze_timestamp": self.freeze_timestamp
         }
+
+    def update_trailing_sl(self, position: Dict) -> bool:
+        """
+        Update trailing stop loss
+        
+        Args:
+            position: Position dictionary from MT5
+            
+        Returns:
+            bool: True if SL was updated, False otherwise
+        """
+        ticket = position['ticket']
+        symbol = position['symbol']
+        order_type = position['type']
+        current_sl = position.get('sl', 0.0)
+        
+        # Get current price
+        price_current = position.get('price_current', 0.0)
+        if price_current == 0:
+            # Try to get fresh price
+            tick = self.mt5.get_current_price(symbol)
+            if tick:
+                price_current = tick['bid'] if order_type == 0 else tick['ask']
+        
+        if price_current == 0:
+            return False
+            
+        price_open = position['price_open']
+        
+        if not self.tsl_enabled:
+            return False
+            
+        # Define trailing parameters from config
+        point = self.mt5.get_symbol_info(symbol).get('point', 0.00001)
+        activation_dist_points = self.tsl_activation
+        trail_dist_points = self.tsl_distance
+        step_points = self.tsl_step
+        
+        new_sl = current_sl
+        
+        if order_type == 0: # BUY
+            # Profit in points
+            profit_points = (price_current - price_open) / point
+            
+            if profit_points > activation_dist_points:
+                # Target SL level
+                target_sl = price_current - (trail_dist_points * point)
+                
+                # Only move SL up
+                if target_sl > current_sl and target_sl > price_open:
+                    if (target_sl - current_sl) >= (step_points * point):
+                        new_sl = target_sl
+                        
+        elif order_type == 1: # SELL
+            # Profit in points
+            profit_points = (price_open - price_current) / point
+            
+            if profit_points > activation_dist_points:
+                 # Target SL level
+                target_sl = price_current + (trail_dist_points * point)
+                
+                # Only move SL down
+                if (current_sl == 0 or target_sl < current_sl) and target_sl < price_open:
+                    if current_sl == 0 or (current_sl - target_sl) >= (step_points * point):
+                        new_sl = target_sl
+        
+        # Apply modification if needed
+        if new_sl != current_sl:
+             # Round to digits
+            info = self.mt5.get_symbol_info(symbol)
+            digits = info.get('digits', 5) if info else 5
+            new_sl = round(new_sl, digits)
+            
+            request = {
+                "action": self.mt5.mt5.TRADE_ACTION_SLTP,
+                "position": ticket,
+                "sl": new_sl,
+                "tp": position.get('tp', 0.0)
+            }
+            
+            res = self.mt5.mt5.order_send(request)
+            if res.retcode == self.mt5.mt5.TRADE_RETCODE_DONE:
+                logger.info(f"[{symbol}] Trailing SL updated: {current_sl} -> {new_sl}")
+                return True
+            else:
+                logger.error(f"[{symbol}] Failed to update SL: {res.comment}")
+                
+        return False
+
+    def manage_position(self, position: Dict) -> Dict[str, int]:
+        """
+        Manage an existing position (Trailing SL, etc)
+        
+        Args:
+            position: Position dictionary from MT5
+            
+        Returns:
+            Dict[str, int]: Dictionary with 'sl' and 'tp' modification counts
+        """
+        mods = {'sl': 0, 'tp': 0}
+        
+        # Trailing SL logic
+        if self.update_trailing_sl(position):
+            mods['sl'] += 1
+            
+        return mods
 
 
 def test_position_manager():
