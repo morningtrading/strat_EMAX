@@ -1,0 +1,128 @@
+
+# EMAX Trading Engine Setup Guide for Linux Mint
+This guide details how to set up the EMAX Trading Engine on a fresh Linux Mint installation.
+The engine requires Windows Python running inside Wine to communicate with the MetaTrader 5 terminal.
+
+## Prerequisites
+- Linux Mint (or Ubuntu-based distro)
+- Internet connection
+- Sudo privileges
+
+## Step 1: Install Wine (Compatibility Layer)
+We recommend WineHQ Staging for best compatibility with MT5.
+
+1.  **Enable 32-bit architecture:**
+    ```bash
+    sudo dpkg --add-architecture i386
+    ```
+
+2.  **Add WineHQ Repository:**
+    ```bash
+    sudo mkdir -pm755 /etc/apt/keyrings
+    sudo wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
+    sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources
+    # NOTE: Replace 'jammy' with your specific Mint base version codename if different (check /etc/os-release).
+    ```
+
+3.  **Update and Install:**
+    ```bash
+    sudo apt update
+    sudo apt install --install-recommends winehq-staging
+    ```
+
+4.  **Verify Installation:**
+    ```bash
+    wine --version
+    # Should output something like "wine-9.x (Staging)"
+    ```
+
+## Step 2: Install Python for Windows (Inside Wine)
+You cannot use the native Linux Python. You must install the Windows version of Python into the Wine environment.
+
+1.  **Download Python Installer (Windows x86-64):**
+    Download Python 3.10 or 3.11 (Windows installer) from python.org.
+    ```bash
+    wget https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe
+    ```
+
+2.  **Install Python into Wine prefix:**
+    ```bash
+    wine python-3.10.11-amd64.exe
+    ```
+    *   **IMPORTANT:** In the installer GUI, check **"Add Python to PATH"**.
+    *   Click "Install Now".
+
+3.  **Verify Python in Wine:**
+    ```bash
+    wine python --version
+    # Should output "Python 3.10.11"
+    ```
+
+## Step 3: Install MetaTrader 5
+1.  **Download MT5 Installer:**
+    Download `mt5setup.exe` from your broker or MetaQuotes.
+
+2.  **Install MT5:**
+    ```bash
+    wine mt5setup.exe
+    ```
+    *   Complete the installation wizard.
+    *   Launch MT5 once to log in to your trading account.
+    *   **Enable Algo Trading:** Tools > Options > Expert Advisors > "Allow automated trading".
+
+## Step 4: Clone the Project
+1.  **Install Git:**
+    ```bash
+    sudo apt install git
+    ```
+
+2.  **Clone Repo:**
+    ```bash
+    git clone https://github.com/morningtrading/strat_EMAX.git
+    cd strat_EMAX
+    ```
+
+## Step 5: Install Python Dependencies
+Install required packages into the Wine Python environment.
+
+1.  **Install requirements:**
+    ```bash
+    wine pip install -r requirements.txt
+    ```
+    *   If `wine pip` is not found, try `wine python -m pip install -r requirements.txt`.
+
+2.  **Verify MetaTrader5 package:**
+    ```bash
+    wine python -c "import MetaTrader5; print(MetaTrader5.__version__)"
+    ```
+
+## Step 6: Configuration
+1.  **Copy config template:**
+    ```bash
+    cp config/trading_config.json.example config/trading_config.json
+    ```
+
+2.  **Edit Config:**
+    Open `config/trading_config.json` and set your preferences (Risk, Symbols, etc.).
+
+## Step 7: Run the Engine
+Use the provided `menu.sh` script to manage the bot.
+
+1.  **Make script executable:**
+    ```bash
+    chmod +x menu.sh
+    ```
+
+2.  **Start Menu:**
+    ```bash
+    ./menu.sh
+    ```
+
+3.  **Running:**
+    *   Select `1` to Start Engine.
+    *   Select `6` to View Logs.
+    *   Visit `http://localhost:8081` for the Dashboard.
+
+## Docker Option (Advanced)
+Alternatively, you can build a Docker image that encapsulates Wine, Python, and the project.
+(A `Dockerfile` is included in the project root if you prefer this method).
